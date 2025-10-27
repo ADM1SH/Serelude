@@ -1,2 +1,6 @@
 # Serelude
-lilies of the valley bloom into a heart as light and motion dance in harmony. A sequel to Prelude, it celebrates two months of love through art, code, and gentle rhythm.
+A quiet song between blossoms.
+Each petal a note, each line of code a heartbeat.
+What began as a prelude now blooms softly in light
+a serenade that lingers, looping endlessly,
+for love that grows in silence and glows in rhythm. 
