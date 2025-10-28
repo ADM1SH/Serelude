@@ -1,4 +1,9 @@
 # Serelude - Interactive Anniversary Animation
+A quiet song between blossoms.
+Each petal a note, each line of code a heartbeat.
+What began as a prelude now blooms softly in light
+a serenade that lingers, looping endlessly,
+for love that grows in silence and glows in rhythm. 
 
 This project is a two-month anniversary web animation themed around the Lily of the Valley flower. It is a static site built with HTML, CSS, and JavaScript, designed to be hosted on GitHub Pages. All visuals are procedurally drawn and animated using the HTML Canvas API.
 
