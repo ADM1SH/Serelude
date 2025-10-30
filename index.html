@@ -10,18 +10,43 @@
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <div id="title-screen">
+    <div class="title-content">
+        <canvas id="logo-canvas" width="400" height="100"></canvas>
+        <div class="poem">
+            <p>A quiet song between blossoms.</p>
+            <p>Each petal a note, each line of code a heartbeat.</p>
+            <p>What began as a prelude now blooms softly in light</p>
+            <p>a serenade that lingers, looping endlessly,</p>
+            <p>for love that grows in silence and glows in rhythm.</p>
+        </div>
+        <div class="features">
+            <p>Explore a dynamic world with a day/night cycle, mine and place blocks, meet friendly creatures, and save your creations.</p>
+        </div>
+        <button id="start-game-btn">Start Game</button>
+    </div>
+  </div>
+
   <canvas id="animationCanvas"></canvas>
-  <div id="controls-note">
-    <button id="close-note-btn">&times;</button>
-    <h3>Controls</h3>
-    <ul>
-        <li><strong>A / D</strong>: Move</li>
-        <li><strong>W / Space</strong>: Jump</li>
-        <li><strong>1 - 6</strong>: Select Item</li>
-        <li><strong>Mouse Click</strong>: Mine / Place</li>
-        <li><strong>T</strong>: for a surprise...</li>
-    </ul>
-    <div id="controls-tab">[ C ]</div>
+
+  <div id="controls-container">
+    <div id="controls-note">
+      <button id="close-note-btn">&times;</button>
+      <h3>Controls</h3>
+      <ul>
+          <li><strong>A / D</strong>: Move</li>
+          <li><strong>W / Space</strong>: Jump</li>
+          <li><strong>1 - 6</strong>: Select Item</li>
+          <li><strong>Mouse Click</strong>: Mine / Place</li>
+          <li><strong>T</strong>: for a surprise...</li>
+          <li id="save-btn" class="note-button">Save World</li>
+          <li id="reset-btn" class="note-button">New World</li>
+      </ul>
+      <div id="controls-tab">[ C ]</div>
+    </div>
+  </div>
+  <div id="minimap-container">
+    <canvas id="minimap-canvas"></canvas>
   </div>
   <div id="overlay">
     <h1 id="message1">Happy two months, my love</h1>

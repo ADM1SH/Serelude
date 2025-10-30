@@ -1,5 +1,6 @@
 :root {
   --bg-color: #F8F8F5;       /* ivory */
+  --sky-blue: #D4E6F1;
   --leaf-green: #B6C8A9;     /* pale sage */
   --petal-white: #FAFAF0;    /* cream */
   --heart-pink: #F2A9A9;     /* blush pink */
@@ -46,9 +47,7 @@ canvas {
   transition: text-shadow 0.3s ease-in-out;
 }
 #controls-note {
-  position: absolute;
-  top: 15px;
-  left: 15px;
+  position: relative; /* Let the grid container handle positioning */
   width: 200px;
   padding: 15px;
   background-color: rgba(46, 46, 46, 0.7); /* Dark, semi-transparent */
@@ -58,6 +57,7 @@ canvas {
   transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 60;
 }
 
 #controls-note.hidden {
@@ -102,4 +102,106 @@ canvas {
   height: 20px;
   text-align: center;
   font-size: 10px;
+}
+
+.note-button {
+    margin-top: 10px;
+    padding: 5px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.note-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+#title-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(to bottom, var(--sky-blue), var(--bg-color));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: opacity 1s ease-out;
+  text-align: center;
+}
+
+#title-screen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.title-content #logo-canvas {
+  margin-bottom: 20px;
+  max-width: 90%;
+}
+
+.title-content h1 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 3em;
+  color: var(--text-gray);
+  margin-bottom: 20px;
+}
+
+.poem {
+  font-family: 'Segoe UI', sans-serif;
+  font-style: italic;
+  color: #5a5a5a;
+  margin-bottom: 40px;
+}
+
+.poem p {
+  margin: 0.2em 0;
+}
+
+.features {
+  font-family: 'Segoe UI', sans-serif;
+  color: var(--text-gray);
+  max-width: 400px;
+  margin: 0 auto 40px auto;
+}
+
+#start-game-btn {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 1.2em;
+  padding: 15px 30px;
+  border: none;
+  background-color: var(--heart-pink);
+  color: white;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#start-game-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px var(--heart-pink);
+}
+
+#controls-container {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  z-index: 50;
+}
+
+#minimap-container {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 50;
+}
+
+#minimap-canvas {
+  position: relative; /* Let the grid container handle positioning */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(46, 46, 46, 0.5);
+  border-radius: 4px;
 }
