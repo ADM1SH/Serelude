@@ -1,10 +1,13 @@
 const canvas = document.getElementById('animationCanvas');
 const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
 
 // Terraria-like world properties
 const TILE_SIZE = 20;
-let world = [];
-let worldWidth, worldHeight;
+let world = []; // This will be a much larger array now
+let worldWidth = 200; // Let's make the world 200 tiles wide
+let worldHeight = 60;  // And 60 tiles high
 
 const player = {
     x: 0,
@@ -51,6 +54,11 @@ let celestialBody = { angle: -Math.PI };
 let isNight = false;
 let isDraggingSunMoon = false;
 
+const camera = {
+    x: 0,
+    y: 0
+};
+
 const tileColors = {
     sky: 'transparent',
     grass: '#B6C8A9',
@@ -83,7 +91,7 @@ function resizeCanvas() {
 function initWorld() {
   world = [];
   for (let y = 0; y < worldHeight; y++) {
-    world.push(new Array(worldWidth).fill(0));
+      world.push(new Array(worldWidth).fill(0));
   }
 
   const groundLevelY = Math.floor(worldHeight * 0.8); // A fixed level for the ground
@@ -101,7 +109,7 @@ function initWorld() {
   }
 
   // Set player start position on the flat ground
-  player.x = worldWidth * TILE_SIZE / 2;
+  player.x = worldWidth * TILE_SIZE / 2; // Start in the middle of the big world
   player.y = groundLevelY * TILE_SIZE - player.height;
 
   generateTrees(groundLevelY);
@@ -135,12 +143,6 @@ function loadGameState() {
             inventory.items = savedState.inventory;
             celestialBody = savedState.celestialBody;
 
-            // Update dimensions based on loaded world
-            worldHeight = world.length;
-            worldWidth = world[0].length;
-            canvas.height = worldHeight * TILE_SIZE;
-            canvas.width = worldWidth * TILE_SIZE;
-
             const groundLevelY = findGroundLevel();
             initCreatures(groundLevelY);
             console.log("World Loaded!");
@@ -155,7 +157,7 @@ function loadGameState() {
 
 function findGroundLevel() {
     // Find the first solid block from the middle of the world down.
-    const midX = Math.floor(worldWidth / 2);
+    const midX = Math.floor(world.length > 0 ? world[0].length / 2 : worldWidth / 2);
     for (let y = 0; y < worldHeight; y++) {
         if (isSolid(world[y][midX])) {
             return y;
@@ -165,7 +167,7 @@ function findGroundLevel() {
 }
 
 function generateTrees(groundLevelY) {
-    let x = 3; // Start away from the edge
+    let x = 5; // Start away from the edge
     while (x < worldWidth - 3) {
         // Use Math.random() to decide whether to plant a tree
         if (Math.random() < 0.1) { // 10% chance to plant a tree
@@ -214,7 +216,7 @@ function generateFlowers(groundLevelY) {
 function initCreatures(groundLevelY) {
     creatures = [];
     for (let i = 0; i < 3; i++) { // Spawn 3 bunnies
-        const spawnX = Math.random() * canvas.width;
+        const spawnX = Math.random() * worldWidth * TILE_SIZE;
         creatures.push({
             type: 'bunny',
             x: spawnX,
@@ -231,7 +233,7 @@ function initCreatures(groundLevelY) {
     for (let i = 0; i < 5; i++) { // Spawn 5 birds
         creatures.push({
             type: 'bird',
-            x: Math.random() * canvas.width,
+            x: Math.random() * worldWidth * TILE_SIZE,
             y: Math.random() * canvas.height * 0.4, // Spawn in the upper sky
             width: TILE_SIZE * 0.6,
             height: TILE_SIZE * 0.6,
@@ -341,12 +343,20 @@ function drawSaplingTile(x, y) {
 }
 
 function drawWorld() {
+    // Calculate which tiles are visible on screen
+    const startCol = Math.floor(camera.x / TILE_SIZE);
+    const endCol = startCol + (canvas.width / TILE_SIZE) + 1;
+    const startRow = Math.floor(camera.y / TILE_SIZE);
+    const endRow = startRow + (canvas.height / TILE_SIZE) + 1;
+
     // Draw all tiles with new detailed functions
-    for (let y = 0; y < worldHeight; y++) {
-        for (let x = 0; x < worldWidth; x++) {
+    for (let y = startRow; y < endRow; y++) {
+        for (let x = startCol; x < endCol; x++) {
+            if (x < 0 || x >= worldWidth || y < 0 || y >= worldHeight) continue;
+
             const tileType = world[y][x];
-            const tileX = x * TILE_SIZE;
-            const tileY = y * TILE_SIZE;
+            const tileX = x * TILE_SIZE - camera.x;
+            const tileY = y * TILE_SIZE - camera.y;
 
             switch (tileType) {
                 case 1: drawGrassTile(tileX, tileY); break;
@@ -533,7 +543,7 @@ function checkCollision(rect1, rect2) {
 
 function drawPlayer() {
     ctx.save();
-    const playerCenterX = player.x + player.width / 2;
+    const playerCenterX = player.x - camera.x + player.width / 2;
     
     // Flip context if walking left
     if (player.direction === 'left') {
@@ -553,47 +563,47 @@ function drawPlayer() {
 
     // Head
     ctx.fillStyle = skin;
-    ctx.fillRect(player.x + pSize, player.y, pSize * 3, pSize * 4); // Face (was player.x + pSize)
+    ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y, pSize * 3, pSize * 4);
     ctx.fillStyle = hair;
-    ctx.fillRect(player.x + pSize, player.y, pSize * 4, pSize * 2); // Hair top (was player.x)
-    ctx.fillRect(player.x + pSize, player.y + pSize * 2, pSize, pSize); // Hair side (was player.x + pSize * 3)
+    ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y, pSize * 4, pSize * 2);
+    ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 2, pSize, pSize);
 
     // Eye
     ctx.fillStyle = '#2E2E2E';
-    ctx.fillRect(player.x + pSize * 2, player.y + pSize * 2, pSize, pSize); // Stays the same
+    ctx.fillRect(player.x - camera.x + pSize * 2, player.y - camera.y + pSize * 2, pSize, pSize);
 
     // Body
     ctx.fillStyle = shirt;
-    ctx.fillRect(player.x + pSize, player.y + pSize * 4, pSize * 3, pSize * 3);
+    ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 4, pSize * 3, pSize * 3);
 
     // Arm
-    ctx.fillRect(player.x + pSize * 4, player.y + pSize * 4, pSize, pSize * 2); // (was player.x)
+    ctx.fillRect(player.x - camera.x + pSize * 4, player.y - camera.y + pSize * 4, pSize, pSize * 2);
     ctx.fillStyle = skin;
-    ctx.fillRect(player.x + pSize * 4, player.y + pSize * 6, pSize, pSize); // Hand (was player.x)
+    ctx.fillRect(player.x - camera.x + pSize * 4, player.y - camera.y + pSize * 6, pSize, pSize);
 
     // Legs - with walking animation
     ctx.fillStyle = pants;
     if (player.isWalking) {
         if (player.walkFrame === 0) {
             // Leg 1 forward
-            ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize * 2);
+            ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 7, pSize, pSize * 2);
             // Leg 2 back
-            ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize);
+            ctx.fillRect(player.x - camera.x + pSize * 2, player.y - camera.y + pSize * 7, pSize, pSize);
         } else {
             // Leg 1 back
-            ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize);
+            ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 7, pSize, pSize);
             // Leg 2 forward
-            ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize * 2);
+            ctx.fillRect(player.x - camera.x + pSize * 2, player.y - camera.y + pSize * 7, pSize, pSize * 2);
         }
     } else { // Standing still
-        ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize * 2);
-        ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize * 2);
+        ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 7, pSize, pSize * 2);
+        ctx.fillRect(player.x - camera.x + pSize * 2, player.y - camera.y + pSize * 7, pSize, pSize * 2);
     }
 
     // Shoes
     ctx.fillStyle = shoes;
-    ctx.fillRect(player.x + pSize, player.y + pSize * 9, pSize, pSize);
-    ctx.fillRect(player.x + pSize * 2, player.y + pSize * 9, pSize, pSize);
+    ctx.fillRect(player.x - camera.x + pSize, player.y - camera.y + pSize * 9, pSize, pSize);
+    ctx.fillRect(player.x - camera.x + pSize * 2, player.y - camera.y + pSize * 9, pSize, pSize);
 
     ctx.restore();
 }
@@ -614,7 +624,7 @@ function drawHeart(cx, cy, size) {
 
 function drawBunny(bunny) {
     ctx.save();
-    const bunnyCenterX = bunny.x + bunny.width / 2;
+    const bunnyCenterX = bunny.x - camera.x + bunny.width / 2;
 
     if (bunny.direction === 'left') {
         ctx.translate(bunnyCenterX, 0);
@@ -632,26 +642,26 @@ function drawBunny(bunny) {
 
     // Body - making it more rounded and crouched
     ctx.fillStyle = bodyColor;
-    ctx.fillRect(bunny.x + pSize, bunny.y + pSize * 4, pSize * 3, pSize * 2); // Main body
-    ctx.fillRect(bunny.x + pSize * 2, bunny.y + pSize * 3, pSize * 2, pSize); // Rounded back
+    ctx.fillRect(bunny.x - camera.x + pSize, bunny.y - camera.y + pSize * 4, pSize * 3, pSize * 2);
+    ctx.fillRect(bunny.x - camera.x + pSize * 2, bunny.y - camera.y + pSize * 3, pSize * 2, pSize);
 
     // Tail
     ctx.fillStyle = tailColor;
-    ctx.fillRect(bunny.x, bunny.y + pSize * 4, pSize, pSize);
+    ctx.fillRect(bunny.x - camera.x, bunny.y - camera.y + pSize * 4, pSize, pSize);
 
     // Head
     ctx.fillStyle = bodyColor;
-    ctx.fillRect(bunny.x + pSize * 3, bunny.y + pSize * 2, pSize * 2, pSize * 2);
+    ctx.fillRect(bunny.x - camera.x + pSize * 3, bunny.y - camera.y + pSize * 2, pSize * 2, pSize * 2);
 
     // Ears - making them longer
     ctx.fillStyle = earColor;
-    ctx.fillRect(bunny.x + pSize * 3, bunny.y, pSize, pSize * 3); // Back ear
+    ctx.fillRect(bunny.x - camera.x + pSize * 3, bunny.y - camera.y, pSize, pSize * 3);
     ctx.fillStyle = bodyColor;
-    ctx.fillRect(bunny.x + pSize * 4, bunny.y + pSize, pSize, pSize * 2); // Front ear
+    ctx.fillRect(bunny.x - camera.x + pSize * 4, bunny.y - camera.y + pSize, pSize, pSize * 2);
 
     // Eye
     ctx.fillStyle = eyeColor;
-    ctx.fillRect(bunny.x + pSize * 4, bunny.y + pSize * 2, pSize, pSize);
+    ctx.fillRect(bunny.x - camera.x + pSize * 4, bunny.y - camera.y + pSize * 2, pSize, pSize);
 
     ctx.restore();
 }
@@ -724,7 +734,7 @@ function updateCreatures() {
 
             // Screen bounds
             if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
-            if (creature.x + creature.width > canvas.width) { creature.x = canvas.width - creature.width; creature.direction = 'left'; }
+            if (creature.x + creature.width > worldWidth * TILE_SIZE) { creature.x = worldWidth * TILE_SIZE - creature.width; creature.direction = 'left'; }
         } else if (creature.type === 'bird') {
             creature.aiTimer--;
             if (creature.aiTimer <= 0) {
@@ -741,8 +751,8 @@ function updateCreatures() {
             creature.direction = creature.vx >= 0 ? 'right' : 'left';
 
             // Screen bounds for birds
-            if (creature.x < 0 || creature.x + creature.width > canvas.width) creature.vx *= -1;
-            if (creature.y < 0 || creature.y + creature.height > canvas.height * 0.6) creature.vy *= -1;
+            if (creature.x < 0 || creature.x + creature.width > worldWidth * TILE_SIZE) creature.vx *= -1;
+            if (creature.y < 0 || creature.y + creature.height > worldHeight * TILE_SIZE * 0.6) creature.vy *= -1;
 
 
         }
@@ -837,8 +847,21 @@ function updatePlayer() {
   }
 
   // Prevent player from going off-screen
-  if (player.x < 0) player.x = 0;
-  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+  if (player.x < 0) {
+      player.x = 0;
+  }
+  if (player.x + player.width > worldWidth * TILE_SIZE) {
+      player.x = worldWidth * TILE_SIZE - player.width;
+  }
+}
+
+function updateCamera() {
+    // Center camera on player
+    camera.x = player.x - canvas.width / 2 + player.width / 2;
+    camera.y = player.y - canvas.height / 2 + player.height / 2;
+    // Clamp camera to world bounds
+    camera.x = Math.max(0, Math.min(camera.x, worldWidth * TILE_SIZE - canvas.width));
+    camera.y = Math.max(0, Math.min(camera.y, worldHeight * TILE_SIZE - canvas.height));
 }
 
 function drawItemIcon(item, x, y, size) {
@@ -1042,11 +1065,46 @@ function drawInventory() {
     });
 }
 
+function drawMinimap() {
+    // Set minimap size based on world size (1 pixel per tile)
+    minimapCanvas.width = worldWidth;
+    minimapCanvas.height = worldHeight;
+
+    minimapCtx.clearRect(0, 0, worldWidth, worldHeight);
+
+    for (let y = 0; y < worldHeight; y++) {
+        for (let x = 0; x < worldWidth; x++) {
+            const tileType = world[y][x];
+            let color = 'transparent';
+            switch (tileType) {
+                case 1: color = tileColors.grass; break;
+                case 2: color = tileColors.dirt; break;
+                case 3: color = tileColors.stone; break;
+                case 4: color = tileColors.wood; break;
+                case 5: color = tileColors.leaves; break;
+                case 6: case 7: color = tileColors.flowerPetal; break;
+                case 8: color = tileColors.sapling; break;
+            }
+            if (color !== 'transparent') {
+                minimapCtx.fillStyle = color;
+                minimapCtx.fillRect(x, y, 1, 1);
+            }
+        }
+    }
+
+    // Draw player position
+    const playerMinimapX = Math.floor(player.x / TILE_SIZE);
+    const playerMinimapY = Math.floor(player.y / TILE_SIZE);
+    minimapCtx.fillStyle = 'white';
+    minimapCtx.fillRect(playerMinimapX, playerMinimapY, 2, 2); // 2x2 pixels to be more visible
+}
+
 function animate() {
   drawSky();
   drawWorld();
   drawBackground();
   updateCreatures();
+  updateCamera();
   updatePlayer();
   drawPlayer();
   creatures.forEach(creature => {
@@ -1056,6 +1114,7 @@ function animate() {
           drawBird(creature);
       }
   });
+  drawMinimap();
   drawInventory();
     
     // Spawn new falling hearts continuously
@@ -1143,11 +1202,11 @@ canvas.addEventListener('mousemove', (event) => {
 canvas.addEventListener('click', (event) => {
   if (isDraggingSunMoon) return;
   const rect = canvas.getBoundingClientRect();
-  let clickX = event.clientX - rect.left;
-  let clickY = event.clientY - rect.top;
+  const clickX = event.clientX - rect.left;
+  const clickY = event.clientY - rect.top;
   
-    const tileX = Math.floor(clickX / TILE_SIZE);
-    const tileY = Math.floor(clickY / TILE_SIZE);
+    const tileX = Math.floor((clickX + camera.x) / TILE_SIZE);
+    const tileY = Math.floor((clickY + camera.y) / TILE_SIZE);
 
     if (!world[tileY] || world[tileY][tileX] === undefined) return;
 
@@ -1190,21 +1249,17 @@ canvas.addEventListener('click', (event) => {
 
     // --- Placing Logic ---
     if (clickedTile === 0) { // Can only place in empty space
-        if (selectedItem.type === 'stone' && selectedItem.amount > 0) {
+        if (selectedItem.type === 'stone') {
             world[tileY][tileX] = 3; // Place stone
-            selectedItem.amount--;
-        } else if (selectedItem.type === 'wood' && selectedItem.amount > 0) {
+        } else if (selectedItem.type === 'wood') {
             world[tileY][tileX] = 4; // Place wood
-            selectedItem.amount--;
-        } else if (selectedItem.type === 'dirt' && selectedItem.amount > 0) {
+        } else if (selectedItem.type === 'dirt') {
             world[tileY][tileX] = 2; // Place dirt
-            selectedItem.amount--;
-        } else if (selectedItem.type === 'lily' && selectedItem.amount > 0) {
+        } else if (selectedItem.type === 'lily') {
             // Check if placing on grass
             if (world[tileY + 1]?.[tileX] === 1) {
                 world[tileY][tileX] = 6; // Place stem
                 world[tileY - 1][tileX] = 7; // Place petal
-                selectedItem.amount--;
             }
         }
     }
@@ -1296,10 +1351,6 @@ document.getElementById('reset-btn').addEventListener('click', () => {
 function startGame() {
     if (!loadGameState()) {
         // If no save file exists, set canvas size and create a new world
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        worldWidth = Math.ceil(canvas.width / TILE_SIZE);
-        worldHeight = Math.ceil(canvas.height / TILE_SIZE);
         initWorld();
     }
     resizeCanvas(); // Ensure background elements are sized correctly
