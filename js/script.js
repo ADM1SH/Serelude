@@ -23,7 +23,9 @@ const inventory = {
         { type: 'axe', name: 'Axe' },
         { type: 'pickaxe', name: 'Pickaxe' },
         { type: 'stone', name: 'Stone', amount: 0 },
-        { type: 'wood', name: 'Wood', amount: 0 }
+        { type: 'wood', name: 'Wood', amount: 0 },
+        { type: 'dirt', name: 'Dirt', amount: 0 },
+        { type: 'lily', name: 'Lily', amount: 0 }
     ],
     selectedSlot: 0
 };
@@ -593,15 +595,52 @@ canvas.addEventListener('click', (event) => {
     const selectedItem = inventory.items[inventory.selectedSlot];
     const clickedTile = world[tileY][tileX];
 
-    // Mining trees with an axe
-    if ((clickedTile === 4 || clickedTile === 5) && selectedItem.type === 'axe') {
-        world[tileY][tileX] = 0; // Remove tile
-        const woodItem = inventory.items.find(item => item.type === 'wood');
-        if (woodItem) woodItem.amount++;
+    // --- Mining Logic ---
+    if (selectedItem.type === 'axe') {
+        if (clickedTile === 4 || clickedTile === 5) { // Wood or Leaves
+            world[tileY][tileX] = 0;
+            if (clickedTile === 4) { // Only give wood for the trunk
+                inventory.items.find(i => i.type === 'wood').amount++;
+            }
+        }
+    } else if (selectedItem.type === 'pickaxe') {
+        if (clickedTile === 1 || clickedTile === 2) { // Grass or Dirt
+            world[tileY][tileX] = 0;
+            inventory.items.find(i => i.type === 'dirt').amount++;
+        } else if (clickedTile === 3) { // Stone
+            world[tileY][tileX] = 0;
+            inventory.items.find(i => i.type === 'stone').amount++;
+        }
     }
-    // Placing stone (for now, this uses the old logic but could be tied to inventory)
-    else if (clickedTile === 0) {
-        world[tileY][tileX] = 3; // Place stone
+
+    // Picking flowers (can be done with any tool or hand)
+    if (clickedTile === 6 || clickedTile === 7) { // Stem or Petal
+        // Find the other part of the flower and remove it too
+        if (clickedTile === 6 && world[tileY - 1]?.[tileX] === 7) world[tileY - 1][tileX] = 0; // Remove petal
+        if (clickedTile === 7 && world[tileY + 1]?.[tileX] === 6) world[tileY + 1][tileX] = 0; // Remove stem
+        world[tileY][tileX] = 0;
+        inventory.items.find(i => i.type === 'lily').amount++;
+    }
+
+    // --- Placing Logic ---
+    if (clickedTile === 0) { // Can only place in empty space
+        if (selectedItem.type === 'stone' && selectedItem.amount > 0) {
+            world[tileY][tileX] = 3; // Place stone
+            selectedItem.amount--;
+        } else if (selectedItem.type === 'wood' && selectedItem.amount > 0) {
+            world[tileY][tileX] = 4; // Place wood
+            selectedItem.amount--;
+        } else if (selectedItem.type === 'dirt' && selectedItem.amount > 0) {
+            world[tileY][tileX] = 2; // Place dirt
+            selectedItem.amount--;
+        } else if (selectedItem.type === 'lily' && selectedItem.amount > 0) {
+            // Check if placing on grass
+            if (world[tileY + 1]?.[tileX] === 1) {
+                world[tileY][tileX] = 6; // Place stem
+                world[tileY - 1][tileX] = 7; // Place petal
+                selectedItem.amount--;
+            }
+        }
     }
 });
 
