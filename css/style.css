@@ -28,12 +28,12 @@ canvas {
   pointer-events: none; /* let clicks pass through to canvas */
 }
 #overlay h1, #overlay h2 {
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Press Start 2P', cursive;
   color: var(--text-gray);
   opacity: 0; /* initially invisible for fade-in */
 }
-#message1 { font-size: 2.5em; margin: 0.2em; }
-#message2 { font-size: 2em; margin: 0.1em; }
+#message1 { font-size: 2em; margin: 0.4em; }
+#message2 { font-size: 1.5em; margin: 0.2em; }
 .fade-in {
   animation: fadeIn 2s forwards;
 }
@@ -44,4 +44,62 @@ canvas {
 #overlay h1:hover, #overlay h2:hover {
   text-shadow: 0 0 10px var(--heart-pink);
   transition: text-shadow 0.3s ease-in-out;
+}
+#controls-note {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  width: 200px;
+  padding: 15px;
+  background-color: rgba(46, 46, 46, 0.7); /* Dark, semi-transparent */
+  backdrop-filter: blur(5px);
+  font-family: 'Segoe UI', sans-serif;
+  color: white;
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#controls-note.hidden {
+  transform: translateY(calc(-100% + 20px)); /* Slide up, leaving 20px visible */
+  pointer-events: none;
+}
+
+#controls-note.hidden #controls-tab {
+  pointer-events: all; /* Allow clicking the tab when hidden */
+  cursor: pointer;
+}
+
+#controls-note h3 {
+  margin: 0 0 10px 0;
+  text-align: center;
+  border-bottom: 1px solid rgba(0,0,0,0.1);
+  padding-bottom: 5px;
+}
+
+#controls-note ul {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+#close-note-btn {
+  position: absolute;
+  top: 2px;
+  right: 5px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+}
+
+#controls-tab {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  width: 100%;
+  height: 20px;
+  text-align: center;
+  font-size: 10px;
 }
