@@ -13,8 +13,8 @@ const player = {
     height: TILE_SIZE * 2,
     vx: 0,
     vy: 0,
-    speed: 5,
-    jumpForce: 10,
+    speed: 4,
+    jumpForce: 9,
     onGround: false,
     direction: 'right',
     isWalking: false,
@@ -71,9 +71,11 @@ const timePalettes = {
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  worldWidth = Math.ceil(canvas.width / TILE_SIZE);
-  worldHeight = Math.ceil(canvas.height / TILE_SIZE);
-  initWorld();
+  // When resizing, we just want to update the canvas dimensions.
+  // The world itself shouldn't change. We'll re-init visual elements
+  // that depend on screen size.
+  initBackgroundParticles(); // Re-scatter particles for new size
+  initClouds(); // Re-create clouds for new size
 }
 
 function initWorld() {
@@ -105,15 +107,68 @@ function initWorld() {
   initCreatures(groundLevelY);
 }
 
+function saveGameState() {
+    const gameState = {
+        world: world,
+        player: {
+            x: player.x,
+            y: player.y
+        },
+        inventory: inventory.items,
+        celestialBody: celestialBody
+    };
+    localStorage.setItem('sereludeSaveData', JSON.stringify(gameState));
+    console.log("World Saved!");
+    // Optional: Add a visual confirmation
+}
+
+function loadGameState() {
+    const savedStateJSON = localStorage.getItem('sereludeSaveData');
+    if (savedStateJSON) {
+        try {
+            const savedState = JSON.parse(savedStateJSON);
+            world = savedState.world;
+            player.x = savedState.player.x;
+            player.y = savedState.player.y;
+            inventory.items = savedState.inventory;
+            celestialBody = savedState.celestialBody;
+
+            // Update dimensions based on loaded world
+            worldHeight = world.length;
+            worldWidth = world[0].length;
+            canvas.height = worldHeight * TILE_SIZE;
+            canvas.width = worldWidth * TILE_SIZE;
+
+            const groundLevelY = findGroundLevel();
+            initCreatures(groundLevelY);
+            console.log("World Loaded!");
+            return true;
+        } catch (e) {
+            console.error("Failed to load saved world:", e);
+            return false;
+        }
+    }
+    return false;
+}
+
+function findGroundLevel() {
+    // Find the first solid block from the middle of the world down.
+    const midX = Math.floor(worldWidth / 2);
+    for (let y = 0; y < worldHeight; y++) {
+        if (isSolid(world[y][midX])) {
+            return y;
+        }
+    }
+    return Math.floor(worldHeight * 0.8); // Fallback
+}
+
 function generateTrees(groundLevelY) {
-    for (let x = 0; x < worldWidth; x++) {
+    let x = 3; // Start away from the edge
+    while (x < worldWidth - 3) {
         // Use Math.random() to decide whether to plant a tree
         if (Math.random() < 0.1) { // 10% chance to plant a tree
             const treeHeight = Math.floor(Math.random() * 4) + 4; // Tree height between 4 and 7
             const treeTopY = groundLevelY - treeHeight;
-
-            // Don't plant trees too close to the edge
-            if (x < 3 || x > worldWidth - 3) continue;
 
             // Create the trunk
             for (let i = 1; i < treeHeight; i++) {
@@ -126,23 +181,31 @@ function generateTrees(groundLevelY) {
                     world[treeTopY + ly][x + lx] = 5; // Leaves
                 }
             }
+            x += Math.floor(Math.random() * 3) + 4; // Skip 4-6 tiles to create space
+        } else {
+            x++;
         }
     }
 }
 
 function generateFlowers(groundLevelY) {
-    for (let x = 0; x < worldWidth; x++) {
+    let x = 1;
+    while (x < worldWidth - 1) {
         // Check if the ground is grass and there's empty space above
         if (world[groundLevelY][x] === 1 && world[groundLevelY - 1][x] === 0) {
-            // 15% chance to plant a flower
-            if (Math.random() < 0.15) {
-                const flowerHeight = 2; // Stem + Petal
-                // Place stem
-                world[groundLevelY - 1][x] = 6; // flowerStem
-                // Place petal
-                world[groundLevelY - 2][x] = 7; // flowerPetal
+            // 8% chance to start a flower cluster
+            if (Math.random() < 0.08) {
+                const clusterSize = Math.floor(Math.random() * 3) + 1; // 1 to 3 flowers
+                for (let i = 0; i < clusterSize && (x + i) < worldWidth - 1; i++) {
+                    if (world[groundLevelY][x+i] === 1 && world[groundLevelY - 1][x+i] === 0) {
+                        world[groundLevelY - 1][x + i] = 6; // flowerStem
+                        world[groundLevelY - 2][x + i] = 7; // flowerPetal
+                    }
+                }
+                x += clusterSize + Math.floor(Math.random() * 5) + 3; // Skip a few tiles after the cluster
             }
         }
+        x++;
     }
 }
 
@@ -560,7 +623,7 @@ function updateCreatures() {
                 const action = Math.random();
                 if (action < 0.4) { // Hop
                     if (creature.onGround) {
-                        creature.vy = -5; // Hop force
+                        creature.vy = -4; // Hop force
                         creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 1 + 1);
                         creature.onGround = false;
                     }
@@ -637,7 +700,7 @@ function updatePlayer() {
 
   // Animation timing
   player.walkFrameTimer++;
-  if (player.walkFrameTimer > 6) { player.walkFrame = 1 - player.walkFrame; player.walkFrameTimer = 0; }
+  if (player.walkFrameTimer > 8) { player.walkFrame = 1 - player.walkFrame; player.walkFrameTimer = 0; }
 
   // Jumping
   if ((keys.w || keys[' ']) && player.onGround) {
@@ -646,7 +709,7 @@ function updatePlayer() {
   }
 
   // Apply gravity
-  player.vy += 0.5; // Simple gravity
+  player.vy += 0.4; // Simple gravity
 
   // --- Horizontal Collision ---
   player.x += player.vx;
@@ -731,22 +794,45 @@ function drawItemIcon(item, x, y, size) {
             ctx.fillRect(p * 2, p * 2, p * 6, p * 2);
             break;
         case 'stone':
-            drawStoneTile(p, p, size - 2 * p);
+            drawStoneIcon(0, 0, size);
             break;
         case 'wood':
-            drawWoodTile(p, p, size - 2 * p);
+            drawWoodIcon(p, p, size - 2 * p);
             break;
         case 'dirt':
-            drawDirtTile(p, p, size - 2 * p);
+            drawDirtIcon(p, p, size - 2 * p);
             break;
         case 'lily':
             ctx.fillStyle = tileColors.flowerStem;
             ctx.fillRect(p * 4, p * 2, p * 2, p * 6);
             ctx.fillStyle = tileColors.flowerPetal;
-            ctx.fillRect(p * 3, p, p * 4, p * 4);
+            ctx.fillRect(p * 3, p * 2, p * 4, p * 3);
             break;
     }
     ctx.restore();
+}
+
+function drawStoneIcon(x, y, size) {
+    const p = size / 10;
+    // Main face
+    ctx.fillStyle = tileColors.stone;
+    ctx.fillRect(x + p, y + p * 2, p * 8, p * 7);
+    // Top face
+    ctx.fillStyle = '#9a9a9a';
+    ctx.beginPath();
+    ctx.moveTo(x + p, y + p * 2);
+    ctx.lineTo(x + p * 3, y);
+    ctx.lineTo(x + p * 11, y);
+    ctx.lineTo(x + p * 9, y + p * 2);
+    ctx.closePath();
+    ctx.fill();
+}
+
+function drawWoodIcon(x, y, size) {
+    drawWoodTile(x, y, size); // The existing 2D version looks good for a stack
+}
+function drawDirtIcon(x, y, size) {
+    drawDirtTile(x, y, size); // The existing 2D version looks good for a stack
 }
 
 // Overload tile drawing functions to accept size for icons
@@ -771,24 +857,44 @@ function drawDirtTile(x, y, size = TILE_SIZE) {
     ctx.fillRect(x + size * 0.3, y + size * 0.2, size * 0.2, size * 0.2);
 }
 
+function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, radius);
+    ctx.arcTo(x + width, y + height, x, y + height, radius);
+    ctx.arcTo(x, y + height, x, y, radius);
+    ctx.arcTo(x, y, x + width, y, radius);
+    ctx.closePath();
+}
+
 function drawInventory() {
     const slotSize = 50;
     const padding = 10;
+    const cornerRadius = 8;
     const startX = (canvas.width - (inventory.items.length * (slotSize + padding))) / 2;
     const startY = 20;
 
     inventory.items.forEach((item, index) => {
         const slotX = startX + index * (slotSize + padding);
         
-        // Draw slot
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(slotX, startY, slotSize, slotSize);
+        // Draw selection highlight first (as a glow)
+        if (index === inventory.selectedSlot) {
+            ctx.shadowColor = '#F2A9A9';
+            ctx.shadowBlur = 15;
+        }
 
-        // Draw selection highlight
+        // Draw slot background
+        ctx.fillStyle = 'rgba(46, 46, 46, 0.5)'; // Softer, darker grey
+        roundRect(ctx, slotX, startY, slotSize, slotSize, cornerRadius);
+        ctx.fill();
+        ctx.shadowBlur = 0; // Reset shadow
+
+        // Draw selection border
         if (index === inventory.selectedSlot) {
             ctx.strokeStyle = '#F2A9A9'; // blush pink
             ctx.lineWidth = 3;
-            ctx.strokeRect(slotX, startY, slotSize, slotSize);
+            roundRect(ctx, slotX, startY, slotSize, slotSize, cornerRadius);
+            ctx.stroke();
         }
 
         // Draw item icon
@@ -796,7 +902,14 @@ function drawInventory() {
         // Draw amount if applicable
         if (item.amount !== undefined) {
             ctx.font = '10px Segoe UI';
-            ctx.fillText(item.amount, slotX + slotSize / 2, startY + 40);
+            ctx.textAlign = 'right';
+            // Draw shadow for text
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillText(item.amount, slotX + slotSize - 6, startY + slotSize - 5);
+            // Draw text
+            ctx.fillStyle = 'white';
+            ctx.fillText(item.amount, slotX + slotSize - 7, startY + slotSize - 6);
+            ctx.textAlign = 'center'; // Reset alignment
         }
     });
 }
@@ -819,7 +932,7 @@ function animate() {
             x: Math.random() * canvas.width,
             y: -20, // Start above screen
             size: Math.random() * 10 + 5,
-            vy: Math.random() * 1 + 0.5 // Falling speed
+            vy: Math.random() * 0.5 + 0.2 // Slower falling speed
         });
     }
 
@@ -856,15 +969,10 @@ function animate() {
 }
 
 window.addEventListener('resize', () => {
-    resizeCanvas();
-    initBackgroundParticles();
-    initClouds();
-    initCreatures(Math.floor(worldHeight * 0.8));
+    // For now, resizing with a saved world is complex.
+    // We can simply suggest a page refresh for a better experience.
+    // A full implementation would require re-rendering, not re-initializing.
 });
-resizeCanvas();
-initBackgroundParticles();
-initClouds();
-requestAnimationFrame(animate);
 
 canvas.addEventListener('mousedown', (event) => {
     const rect = canvas.getBoundingClientRect();
@@ -979,7 +1087,10 @@ document.addEventListener('keydown', (e) => {
 
     if (e.key in keys) keys[e.key] = true;
 
-    if (e.key === 't') {
+    if (e.key === 'c') {
+        document.getElementById('controls-note').classList.toggle('hidden');
+    }
+    else if (e.key === 't') {
         document.getElementById('message1').classList.add('fade-in');
         document.getElementById('message2').classList.add('fade-in');
     }
@@ -988,3 +1099,37 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('keyup', (e) => {
     if (e.key in keys) keys[e.key] = false;
 });
+
+document.getElementById('close-note-btn').addEventListener('click', () => {
+    document.getElementById('controls-note').classList.add('hidden');
+});
+
+document.getElementById('controls-tab').addEventListener('click', () => {
+    document.getElementById('controls-note').classList.remove('hidden');
+});
+
+document.getElementById('save-btn').addEventListener('click', saveGameState);
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+    if (confirm("Are you sure you want to start a new world? Your current saved world will be lost.")) {
+        localStorage.removeItem('sereludeSaveData');
+        initWorld(); // Generate a brand new world
+    }
+});
+
+// --- Game Start Logic ---
+function startGame() {
+    if (!loadGameState()) {
+        // If no save file exists, set canvas size and create a new world
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        worldWidth = Math.ceil(canvas.width / TILE_SIZE);
+        worldHeight = Math.ceil(canvas.height / TILE_SIZE);
+        initWorld();
+    }
+    resizeCanvas(); // Ensure background elements are sized correctly
+    requestAnimationFrame(animate);
+}
+
+startGame();
+requestAnimationFrame(animate);
