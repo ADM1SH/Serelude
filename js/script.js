@@ -18,6 +18,16 @@ const player = {
     onGround: false
 };
 
+const inventory = {
+    items: [
+        { type: 'axe', name: 'Axe' },
+        { type: 'pickaxe', name: 'Pickaxe' },
+        { type: 'stone', name: 'Stone', amount: 0 },
+        { type: 'wood', name: 'Wood', amount: 0 }
+    ],
+    selectedSlot: 0
+};
+
 const keys = {
     a: false,
     d: false,
@@ -37,7 +47,9 @@ const tileColors = {
     sky: 'transparent',
     grass: '#B6C8A9',
     dirt: '#A9907E',
-    stone: '#808080'
+    stone: '#808080',
+    wood: '#8B5A2B',
+    leaves: '#556B2F'
 };
 
 const timePalettes = {
@@ -78,23 +90,62 @@ function initWorld() {
   // Set player start position on the flat ground
   player.x = worldWidth * TILE_SIZE / 2;
   player.y = groundLevelY * TILE_SIZE - player.height;
+
+  generateTrees(groundLevelY);
+}
+
+function generateTrees(groundLevelY) {
+    for (let x = 0; x < worldWidth; x++) {
+        // Use Math.random() to decide whether to plant a tree
+        if (Math.random() < 0.1) { // 10% chance to plant a tree
+            const treeHeight = Math.floor(Math.random() * 4) + 4; // Tree height between 4 and 7
+            const treeTopY = groundLevelY - treeHeight;
+
+            // Don't plant trees too close to the edge
+            if (x < 3 || x > worldWidth - 3) continue;
+
+            // Create the trunk
+            for (let i = 1; i < treeHeight; i++) {
+                world[groundLevelY - i][x] = 4; // Wood
+            }
+
+            // Create the leaves (a simple 3x3 canopy)
+            for (let ly = -1; ly <= 1; ly++) {
+                for (let lx = -1; lx <= 1; lx++) {
+                    world[treeTopY + ly][x + lx] = 5; // Leaves
+                }
+            }
+        }
+    }
+}
+
+function isSolid(tileType) {
+    // 1: grass, 2: dirt, 3: stone are solid.
+    // 4: wood, 5: leaves are background tiles and not solid.
+    return tileType === 1 || tileType === 2 || tileType === 3;
 }
 
 function drawWorld() {
+    // Draw background tiles first (trees)
     for (let y = 0; y < worldHeight; y++) {
         for (let x = 0; x < worldWidth; x++) {
             const tileType = world[y][x];
-            if (tileType === 0) continue; // Skip sky
-
-            let color;
-            switch (tileType) {
-                case 1: color = tileColors.grass; break;
-                case 2: color = tileColors.dirt; break;
-                case 3: color = tileColors.stone; break;
+            if (tileType === 4 || tileType === 5) { // Wood or Leaves
+                ctx.fillStyle = tileType === 4 ? tileColors.wood : tileColors.leaves;
+                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
             }
-            
-            ctx.fillStyle = color;
-            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+    }
+
+    // Draw foreground tiles (solid ground)
+    for (let y = 0; y < worldHeight; y++) {
+        for (let x = 0; x < worldWidth; x++) {
+            const tileType = world[y][x];
+            if (isSolid(tileType)) {
+                let color = tileType === 1 ? tileColors.grass : (tileType === 2 ? tileColors.dirt : tileColors.stone);
+                ctx.fillStyle = color;
+                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
         }
     }
 }
@@ -298,7 +349,7 @@ function updatePlayer() {
 
   for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
-          if (world[y] && world[y][x] > 0) {
+          if (world[y] && isSolid(world[y][x])) {
               // Make sure we don't check tiles that are out of bounds
               if (y < 0 || y >= worldHeight || x < 0 || x >= worldWidth) {
                   continue;
@@ -328,7 +379,7 @@ function updatePlayer() {
 
   for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
-          if (world[y] && world[y][x] > 0) {
+          if (world[y] && isSolid(world[y][x])) {
               if (y < 0 || y >= worldHeight || x < 0 || x >= worldWidth) {
                   continue;
               }
@@ -352,12 +403,47 @@ function updatePlayer() {
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 }
 
+function drawInventory() {
+    const slotSize = 50;
+    const padding = 10;
+    const startX = (canvas.width - (inventory.items.length * (slotSize + padding))) / 2;
+    const startY = 20;
+
+    inventory.items.forEach((item, index) => {
+        const slotX = startX + index * (slotSize + padding);
+        
+        // Draw slot
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(slotX, startY, slotSize, slotSize);
+
+        // Draw selection highlight
+        if (index === inventory.selectedSlot) {
+            ctx.strokeStyle = '#F2A9A9'; // blush pink
+            ctx.lineWidth = 3;
+            ctx.strokeRect(slotX, startY, slotSize, slotSize);
+        }
+
+        // Draw item name (simplified representation)
+        ctx.fillStyle = 'white';
+        ctx.font = '12px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.name, slotX + slotSize / 2, startY + 20);
+
+        // Draw amount if applicable
+        if (item.amount !== undefined) {
+            ctx.font = '10px Segoe UI';
+            ctx.fillText(item.amount, slotX + slotSize / 2, startY + 40);
+        }
+    });
+}
+
 function animate() {
   drawSky();
   drawWorld();
   drawBackground();
   updatePlayer();
   drawPlayer();
+  drawInventory();
 
   hearts.forEach(heart => {
     drawHeart(heart.x, heart.y, heart.size);
@@ -416,17 +502,40 @@ canvas.addEventListener('click', (event) => {
   let clickX = event.clientX - rect.left;
   let clickY = event.clientY - rect.top;
   
-  const tileX = Math.floor(clickX / TILE_SIZE);
-  const tileY = Math.floor(clickY / TILE_SIZE);
+    const tileX = Math.floor(clickX / TILE_SIZE);
+    const tileY = Math.floor(clickY / TILE_SIZE);
 
-  if (world[tileY] && world[tileY][tileX] !== undefined) {
-      if (world[tileY][tileX] === 0) { // Can only place blocks in the sky
-          world[tileY][tileX] = 3; // Place stone
-      }
-  }
+    if (!world[tileY] || world[tileY][tileX] === undefined) return;
+
+    // Check player range
+    const playerTileX = Math.floor((player.x + player.width / 2) / TILE_SIZE);
+    const playerTileY = Math.floor((player.y + player.height / 2) / TILE_SIZE);
+    const distance = Math.sqrt(Math.pow(tileX - playerTileX, 2) + Math.pow(tileY - playerTileY, 2));
+
+    if (distance > 5) return; // Mining range of 5 tiles
+
+    const selectedItem = inventory.items[inventory.selectedSlot];
+    const clickedTile = world[tileY][tileX];
+
+    // Mining trees with an axe
+    if ((clickedTile === 4 || clickedTile === 5) && selectedItem.type === 'axe') {
+        world[tileY][tileX] = 0; // Remove tile
+        const woodItem = inventory.items.find(item => item.type === 'wood');
+        if (woodItem) woodItem.amount++;
+    }
+    // Placing stone (for now, this uses the old logic but could be tied to inventory)
+    else if (clickedTile === 0) {
+        world[tileY][tileX] = 3; // Place stone
+    }
 });
 
 document.addEventListener('keydown', (e) => {
+    // Inventory selection with number keys
+    if (!isNaN(e.key) && e.key > 0 && e.key <= inventory.items.length) {
+        inventory.selectedSlot = parseInt(e.key) - 1;
+        return; // Prevent player movement when changing slots
+    }
+
     if (e.key in keys) keys[e.key] = true;
 
     if (e.key === 'h') {
