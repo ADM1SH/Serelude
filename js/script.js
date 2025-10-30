@@ -1,10 +1,31 @@
 const canvas = document.getElementById('animationCanvas');
 const ctx = canvas.getContext('2d');
 
-let flowers = [];
+// Terraria-like world properties
+const TILE_SIZE = 20;
+let world = [];
+let worldWidth, worldHeight;
+
+const player = {
+    x: 0,
+    y: 0,
+    width: TILE_SIZE,
+    height: TILE_SIZE * 2,
+    vx: 0,
+    vy: 0,
+    speed: 5,
+    jumpForce: 10,
+    onGround: false
+};
+
+const keys = {
+    a: false,
+    d: false,
+    w: false,
+    ' ': false
+};
+
 let hearts = [];
-let petals = [];
-let bloomMode = false;
 let backgroundParticles = [];
 let clouds = [];
 let shootingStars = [];
@@ -12,16 +33,66 @@ let celestialBody = { angle: -Math.PI };
 let isNight = false;
 let isDraggingSunMoon = false;
 
+const tileColors = {
+    sky: 'transparent',
+    grass: '#B6C8A9',
+    dirt: '#A9907E',
+    stone: '#808080'
+};
+
 const timePalettes = {
     dawn: { top: '#F2A9A9', bottom: '#F8F8F5' },
     midday: { top: '#D4E6F1', bottom: '#F8F8F5' },
-    dusk: { top: '#F2A9A9', bottom: '#FAFAF0' }, // Changed from #B6C8A9 to #FAFAF0
+    dusk: { top: '#F2A9A9', bottom: '#FAFAF0' },
     night: { top: '#2E2E2E', bottom: '#4A4A4A' }
 };
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  worldWidth = Math.ceil(canvas.width / TILE_SIZE);
+  worldHeight = Math.ceil(canvas.height / TILE_SIZE);
+  initWorld();
+}
+
+function initWorld() {
+    world = [];
+    for (let y = 0; y < worldHeight; y++) {
+        let row = [];
+        for (let x = 0; x < worldWidth; x++) {
+            if (y < worldHeight * 0.6) {
+                row.push(0); // Sky
+            } else if (y < worldHeight * 0.6 + 1) {
+                row.push(1); // Grass
+            } else {
+                row.push(2); // Dirt
+            }
+        }
+        world.push(row);
+    }
+
+    // Set player start position
+    player.x = worldWidth * TILE_SIZE / 2;
+    player.y = worldHeight * 0.6 * TILE_SIZE - TILE_SIZE * 2;
+}
+
+function drawWorld() {
+    for (let y = 0; y < worldHeight; y++) {
+        for (let x = 0; x < worldWidth; x++) {
+            const tileType = world[y][x];
+            if (tileType === 0) continue; // Skip sky
+
+            let color;
+            switch (tileType) {
+                case 1: color = tileColors.grass; break;
+                case 2: color = tileColors.dirt; break;
+                case 3: color = tileColors.stone; break;
+            }
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+    }
 }
 
 function initBackgroundParticles() {
@@ -93,9 +164,10 @@ function drawSky() {
 
     const sunMoonX = canvas.width / 2 + Math.cos(angle) * (canvas.width / 2 + 30);
     const sunMoonY = canvas.height * 0.8 + Math.sin(angle) * (canvas.height * 0.7);
-        const sunMoonRadius = 30;
+    const sunMoonRadius = 30;
     
-        if (!isNight) {        ctx.fillStyle = '#FAFAF0';
+    if (isNight) {
+        ctx.fillStyle = '#FAFAF0';
         ctx.shadowBlur = 20;
         ctx.shadowColor = '#FAFAF0';
     } else {
@@ -170,133 +242,109 @@ function drawBackground() {
     });
 }
 
-function drawLandscape() {
-    ctx.fillStyle = '#B6C8A9';
-    ctx.beginPath();
-    ctx.moveTo(0, canvas.height);
-    ctx.lineTo(0, canvas.height * 0.8);
-    ctx.quadraticCurveTo(canvas.width * 0.25, canvas.height * 0.7, canvas.width * 0.5, canvas.height * 0.8);
-    ctx.quadraticCurveTo(canvas.width * 0.75, canvas.height * 0.9, canvas.width, canvas.height * 0.8);
-    ctx.lineTo(canvas.width, canvas.height);
-    ctx.closePath();
-    ctx.fill();
+
+
+function checkCollision(rect1, rect2) {
+    return rect1.x < rect2.x + rect2.width &&
+           rect1.x + rect1.width > rect2.x &&
+           rect1.y < rect2.y + rect2.height &&
+           rect1.y + rect1.height > rect2.y;
 }
 
-function drawStickman(x, y, scale) {
-  const stickmanColor = 'rgba(46, 46, 46, 0.7)';
-  ctx.strokeStyle = stickmanColor;
-  ctx.fillStyle = stickmanColor;
-  ctx.lineWidth = 4 * scale;
-  ctx.lineCap = 'round';
-
-  // Head
-  ctx.beginPath();
-  ctx.arc(x, y - 60 * scale, 20 * scale, 0, 2 * Math.PI);
-  ctx.fill();
-
-  // Body
-  ctx.beginPath();
-  ctx.moveTo(x, y - 40 * scale);
-  ctx.lineTo(x, y);
-  ctx.stroke();
-
-  // Arms
-  ctx.beginPath();
-  ctx.moveTo(x, y - 30 * scale);
-  ctx.lineTo(x - 20 * scale, y - 10 * scale);
-  ctx.moveTo(x, y - 30 * scale);
-  ctx.lineTo(x + 20 * scale, y - 10 * scale);
-  ctx.stroke();
-
-  // Legs
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x - 15 * scale, y + 25 * scale);
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 15 * scale, y + 25 * scale);
-  ctx.stroke();
-}
-
-function drawLilyOfValley(x, y, scale, bloomProgress) {
-  ctx.strokeStyle = '#2E2E2E'; // Always charcoal gray for contrast
-  ctx.lineWidth = 2 * scale;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.bezierCurveTo(x - 10 * scale, y - 40 * scale, x + 10 * scale, y - 80 * scale, x, y - 120 * scale);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.quadraticCurveTo(x - 30 * scale, y - 20 * scale, x - 50 * scale, y - 60 * scale);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.quadraticCurveTo(x + 30 * scale, y - 20 * scale, x + 50 * scale, y - 60 * scale);
-  ctx.stroke();
-  const numBells = 5;
-  for (let i = 0; i < numBells; i++) {
-    let pct = (i + 1) / numBells;
-    if (bloomProgress >= pct) {
-      let bx = x + (Math.sin(pct * Math.PI) * 10 * scale) * (i % 2 ? 1 : -1);
-      let by = y - pct * 120 * scale;
-      const r = 5 * scale; // radius for the bell
-      ctx.beginPath();
-      ctx.fillStyle = '#FAFAF0';
-      ctx.moveTo(bx - r, by);
-      ctx.arc(bx, by, r, Math.PI, 0); // Draws the top half of the bell as a semi-circle
-      // Create a lobed, petal-like opening for the bell
-      ctx.quadraticCurveTo(bx + r, by + r * 0.7, bx + r * 0.7, by + r);
-      ctx.quadraticCurveTo(bx + r * 0.3, by + r * 1.1, bx, by + r);
-      ctx.quadraticCurveTo(bx - r * 0.3, by + r * 1.1, bx - r * 0.7, by + r);
-      ctx.quadraticCurveTo(bx - r, by + r * 0.7, bx - r, by);
-      ctx.closePath();
-      ctx.fill();
-    }
-  }
+function drawPlayer() {
+  ctx.fillStyle = '#F2A9A9'; // Player color
+  ctx.fillRect(player.x, player.y, player.width, player.height);
 }
 
 function drawHeart(cx, cy, size) {
-  ctx.fillStyle = '#F2A9A9';
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.bezierCurveTo(cx - size / 2, cy - size / 2, cx - size, cy + size / 4, cx, cy + size);
-  ctx.bezierCurveTo(cx + size, cy + size / 4, cx + size / 2, cy - size / 2, cx, cy);
-  ctx.closePath();
-  ctx.fill();
+    ctx.fillStyle = '#F2A9A9';
+    const s = size / 4; // pixel size
+    ctx.fillRect(cx - s, cy - s * 2, s, s);
+    ctx.fillRect(cx + s, cy - s * 2, s, s);
+    ctx.fillRect(cx - s * 2, cy - s, s, s);
+    ctx.fillRect(cx, cy - s, s, s);
+    ctx.fillRect(cx + s * 2, cy - s, s, s);
+    ctx.fillRect(cx - s, cy, s, s);
+    ctx.fillRect(cx + s, cy, s, s);
+    ctx.fillRect(cx, cy + s, s, s);
+}
+
+function updatePlayer() {
+  // Horizontal movement
+  if (keys.a) player.vx = -player.speed;
+  else if (keys.d) player.vx = player.speed;
+  else player.vx = 0;
+
+  // Jumping
+  if ((keys.w || keys[' ']) && player.onGround) {
+      player.vy = -player.jumpForce;
+      player.onGround = false;
+  }
+
+  // Apply gravity
+  player.vy += 0.5; // Simple gravity
+
+  // --- Horizontal Collision ---
+  player.x += player.vx;
+
+  const startX = Math.floor(player.x / TILE_SIZE);
+  const endX = Math.floor((player.x + player.width) / TILE_SIZE);
+  const startY = Math.floor(player.y / TILE_SIZE);
+  const endY = Math.floor((player.y + player.height) / TILE_SIZE);
+
+  for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+          if (world[y] && world[y][x] > 0) {
+              const tile = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
+              if (checkCollision(player, tile)) {
+                  if (player.vx > 0) { // Moving right
+                      player.x = tile.x - player.width;
+                  } else if (player.vx < 0) { // Moving left
+                      player.x = tile.x + tile.width;
+                  }
+                  player.vx = 0;
+              }
+          }
+      }
+  }
+
+  // --- Vertical Collision ---
+  player.y += player.vy;
+  player.onGround = false;
+
+  for (let y = startY; y <= endY; y++) {
+      for (let x = startX; x <= endX; x++) {
+          if (world[y] && world[y][x] > 0) {
+              const tile = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
+              if (checkCollision(player, tile)) {
+                  if (player.vy > 0) { // Moving down
+                      player.y = tile.y - player.height;
+                      player.vy = 0;
+                      player.onGround = true;
+                  } else if (player.vy < 0) { // Moving up
+                      player.y = tile.y + tile.height;
+                      player.vy = 0;
+                  }
+              }
+          }
+      }
+  }
+
+  // Prevent player from going off-screen
+  if (player.x < 0) player.x = 0;
+  if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 }
 
 function animate() {
   drawSky();
-  drawLandscape();
+  drawWorld();
   drawBackground();
-  drawStickman(canvas.width / 2, canvas.height * 0.8, 1);
-
-  flowers.forEach(flower => {
-    if (flower.bloomProgress < 1) flower.bloomProgress += 0.005;
-    drawLilyOfValley(flower.x, flower.y, flower.scale, flower.bloomProgress);
-  });
+  updatePlayer();
+  drawPlayer();
 
   hearts.forEach(heart => {
     drawHeart(heart.x, heart.y, heart.size);
   });
-
-  if (bloomMode) {
-    if (Math.random() < 0.1) {
-      petals.push({
-        x: Math.random() * canvas.width,
-        y: 0,
-        vy: 1 + Math.random() * 2,
-        size: 3 + Math.random() * 3
-      });
-    }
-    petals.forEach(p => {
-      ctx.fillStyle = '#F2A9A9';
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
-      ctx.fill();
-      p.y += p.vy;
-    });
-    petals = petals.filter(p => p.y < canvas.height + 10);
-  }
 
   requestAnimationFrame(animate);
 }
@@ -343,43 +391,37 @@ canvas.addEventListener('mousemove', (event) => {
         celestialBody.angle = Math.atan2(dy, dx);
         return;
     }
-
-    let mouseX = event.clientX;
-    let mouseY = event.clientY;
-    flowers.forEach(flower => {
-      let dx = flower.x - mouseX;
-      let dy = flower.y - 120 - mouseY;
-      if (Math.sqrt(dx*dx + dy*dy) < 30) {
-        if (!flower.glowing) {
-            flower.glowing = true;
-            for (let i = 0; i < 5; i++) {
-                hearts.push({x: flower.x, y: flower.y - 120, size: Math.random() * 5 + 2});
-            }
-        }
-      } else {
-        flower.glowing = false;
-      }
-    });
 });
 
 canvas.addEventListener('click', (event) => {
   if (isDraggingSunMoon) return;
   const rect = canvas.getBoundingClientRect();
   let clickX = event.clientX - rect.left;
-  flowers.push({ x: clickX, y: canvas.height - 50, scale: 1, bloomProgress: 0 });
+  let clickY = event.clientY - rect.top;
+  
+  const tileX = Math.floor(clickX / TILE_SIZE);
+  const tileY = Math.floor(clickY / TILE_SIZE);
+
+  if (world[tileY] && world[tileY][tileX] !== undefined) {
+      if (world[tileY][tileX] === 0) { // Can only place blocks in the sky
+          world[tileY][tileX] = 3; // Place stone
+      }
+  }
 });
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'f') {
-    flowers.push({ x: Math.random() * canvas.width, y: canvas.height - 50, scale: 1, bloomProgress: 0 });
-  } else if (e.key === 'h') {
-    for (let i = 0; i < 10; i++) {
-        hearts.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 10 + 5});
+    if (e.key in keys) keys[e.key] = true;
+
+    if (e.key === 'h') {
+        for (let i = 0; i < 10; i++) {
+            hearts.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 10 + 5});
+        }
+    } else if (e.key === 't') {
+        document.getElementById('message1').classList.add('fade-in');
+        document.getElementById('message2').classList.add('fade-in');
     }
-  } else if (e.key === 't') {
-    document.getElementById('message1').classList.add('fade-in');
-    document.getElementById('message2').classList.add('fade-in');
-  } else if (e.key === 'b') {
-    bloomMode = !bloomMode;
-  }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key in keys) keys[e.key] = false;
 });
