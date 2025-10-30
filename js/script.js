@@ -15,7 +15,11 @@ const player = {
     vy: 0,
     speed: 5,
     jumpForce: 10,
-    onGround: false
+    onGround: false,
+    direction: 'right',
+    isWalking: false,
+    walkFrame: 0,
+    walkFrameTimer: 0
 };
 
 const inventory = {
@@ -40,6 +44,7 @@ const keys = {
 let hearts = [];
 let backgroundParticles = [];
 let clouds = [];
+let creatures = [];
 let shootingStars = [];
 let celestialBody = { angle: -Math.PI };
 let isNight = false;
@@ -97,6 +102,7 @@ function initWorld() {
 
   generateTrees(groundLevelY);
   generateFlowers(groundLevelY);
+  initCreatures(groundLevelY);
 }
 
 function generateTrees(groundLevelY) {
@@ -137,6 +143,25 @@ function generateFlowers(groundLevelY) {
                 world[groundLevelY - 2][x] = 7; // flowerPetal
             }
         }
+    }
+}
+
+function initCreatures(groundLevelY) {
+    creatures = [];
+    for (let i = 0; i < 3; i++) { // Spawn 3 bunnies
+        const spawnX = Math.random() * canvas.width;
+        creatures.push({
+            type: 'bunny',
+            x: spawnX,
+            y: groundLevelY * TILE_SIZE - TILE_SIZE * 1.5,
+            width: TILE_SIZE,
+            height: TILE_SIZE * 1.5,
+            vx: 0, vy: 0,
+            onGround: false,
+            direction: Math.random() < 0.5 ? 'left' : 'right',
+            aiTimer: Math.random() * 100 + 50,
+            dropCooldown: 0
+        });
     }
 }
 
@@ -243,13 +268,27 @@ function initBackgroundParticles() {
 
 function initClouds() {
     clouds = [];
-    for (let i = 0; i < 5; i++) {
-        clouds.push({
+    const cloudPixelSize = 15;
+    for (let i = 0; i < 5; i++) { // Generate 5 clouds
+        const cloud = {
             x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height * 0.4,
-            radius: Math.random() * 20 + 20,
-            speed: Math.random() * 0.2 + 0.1
-        });
+            y: Math.random() * canvas.height * 0.3 + 20, // Higher in the sky
+            speed: Math.random() * 0.2 + 0.1,
+            blocks: [],
+            width: 0
+        };
+
+        const cloudLength = Math.floor(Math.random() * 4) + 3; // 3 to 6 blocks wide
+        let currentX = 0;
+        for (let j = 0; j < cloudLength; j++) {
+            const blockHeight = (Math.random() * 2 + 1) * cloudPixelSize;
+            const blockY = (Math.random() - 0.5) * cloudPixelSize;
+            cloud.blocks.push({ rx: currentX, ry: blockY, width: cloudPixelSize, height: blockHeight });
+            currentX += cloudPixelSize;
+        }
+        cloud.width = currentX; // Total width of the cloud
+
+        clouds.push(cloud);
     }
 }
 
@@ -314,15 +353,14 @@ function drawSky() {
     ctx.shadowBlur = 0;
 
     clouds.forEach(cloud => {
-        ctx.beginPath();
         ctx.fillStyle = 'rgba(250, 250, 240, 0.7)';
-        ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2);
-        ctx.arc(cloud.x + 20, cloud.y + 10, cloud.radius, 0, Math.PI * 2);
-        ctx.arc(cloud.x - 20, cloud.y + 10, cloud.radius, 0, Math.PI * 2);
-        ctx.fill();
+        cloud.blocks.forEach(block => {
+            ctx.fillRect(cloud.x + block.rx, cloud.y + block.ry, block.width, block.height);
+        });
+
         cloud.x += cloud.speed;
-        if (cloud.x > canvas.width + cloud.radius * 2) {
-            cloud.x = -cloud.radius * 2;
+        if (cloud.x > canvas.width) {
+            cloud.x = -cloud.width;
         }
     });
 
@@ -354,7 +392,7 @@ function drawSky() {
     });
 
     if (!isDraggingSunMoon) {
-        celestialBody.angle += 0.001;
+        celestialBody.angle += 0.0003;
         if (celestialBody.angle > Math.PI) {
             celestialBody.angle = -Math.PI;
         }
@@ -385,28 +423,220 @@ function checkCollision(rect1, rect2) {
 }
 
 function drawPlayer() {
-  ctx.fillStyle = '#F2A9A9'; // Player color
-  ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.save();
+    const playerCenterX = player.x + player.width / 2;
+    
+    // Flip context if walking left
+    if (player.direction === 'left') {
+        ctx.translate(playerCenterX, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-playerCenterX, 0);
+    }
+
+    const pSize = TILE_SIZE / 5; // 4px pixel size for a 20px tile
+
+    // Colors
+    const skin = '#f2d3ab';
+    const hair = '#5d4037';
+    const shirt = '#a9c8b6'; // A soft green to complement the world
+    const pants = '#6a6a6a';
+    const shoes = '#4a4a4a';
+
+    // Head
+    ctx.fillStyle = skin;
+    ctx.fillRect(player.x + pSize, player.y, pSize * 3, pSize * 4); // Face (was player.x + pSize)
+    ctx.fillStyle = hair;
+    ctx.fillRect(player.x + pSize, player.y, pSize * 4, pSize * 2); // Hair top (was player.x)
+    ctx.fillRect(player.x + pSize, player.y + pSize * 2, pSize, pSize); // Hair side (was player.x + pSize * 3)
+
+    // Eye
+    ctx.fillStyle = '#2E2E2E';
+    ctx.fillRect(player.x + pSize * 2, player.y + pSize * 2, pSize, pSize); // Stays the same
+
+    // Body
+    ctx.fillStyle = shirt;
+    ctx.fillRect(player.x + pSize, player.y + pSize * 4, pSize * 3, pSize * 3);
+
+    // Arm
+    ctx.fillRect(player.x + pSize * 4, player.y + pSize * 4, pSize, pSize * 2); // (was player.x)
+    ctx.fillStyle = skin;
+    ctx.fillRect(player.x + pSize * 4, player.y + pSize * 6, pSize, pSize); // Hand (was player.x)
+
+    // Legs - with walking animation
+    ctx.fillStyle = pants;
+    if (player.isWalking) {
+        if (player.walkFrame === 0) {
+            // Leg 1 forward
+            ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize * 2);
+            // Leg 2 back
+            ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize);
+        } else {
+            // Leg 1 back
+            ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize);
+            // Leg 2 forward
+            ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize * 2);
+        }
+    } else { // Standing still
+        ctx.fillRect(player.x + pSize, player.y + pSize * 7, pSize, pSize * 2);
+        ctx.fillRect(player.x + pSize * 2, player.y + pSize * 7, pSize, pSize * 2);
+    }
+
+    // Shoes
+    ctx.fillStyle = shoes;
+    ctx.fillRect(player.x + pSize, player.y + pSize * 9, pSize, pSize);
+    ctx.fillRect(player.x + pSize * 2, player.y + pSize * 9, pSize, pSize);
+
+    ctx.restore();
 }
 
 function drawHeart(cx, cy, size) {
-    ctx.fillStyle = '#F2A9A9';
+    ctx.fillStyle = '#F2A9A9'; // blush pink
     const s = size / 4; // pixel size
     ctx.fillRect(cx - s, cy - s * 2, s, s);
     ctx.fillRect(cx + s, cy - s * 2, s, s);
     ctx.fillRect(cx - s * 2, cy - s, s, s);
     ctx.fillRect(cx, cy - s, s, s);
     ctx.fillRect(cx + s * 2, cy - s, s, s);
-    ctx.fillRect(cx - s, cy, s, s);
-    ctx.fillRect(cx + s, cy, s, s);
+    ctx.fillRect(cx - s, cy, s, s * 2); // Made body slightly longer
+    ctx.fillRect(cx + s, cy, s, s * 2);
     ctx.fillRect(cx, cy + s, s, s);
+}
+
+function drawBunny(bunny) {
+    ctx.save();
+    const bunnyCenterX = bunny.x + bunny.width / 2;
+
+    if (bunny.direction === 'left') {
+        ctx.translate(bunnyCenterX, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-bunnyCenterX, 0);
+    }
+
+    const pSize = TILE_SIZE / 5; // Pixel size
+
+    // Colors
+    const bodyColor = '#d3c5b3'; // A soft, sandy brown
+    const earColor = '#e0d6c7'; // Lighter inner ear
+    const eyeColor = '#2E2E2E';
+    const tailColor = '#FAFAF0'; // Creamy white tail
+
+    // Body - making it more rounded and crouched
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(bunny.x + pSize, bunny.y + pSize * 4, pSize * 3, pSize * 2); // Main body
+    ctx.fillRect(bunny.x + pSize * 2, bunny.y + pSize * 3, pSize * 2, pSize); // Rounded back
+
+    // Tail
+    ctx.fillStyle = tailColor;
+    ctx.fillRect(bunny.x, bunny.y + pSize * 4, pSize, pSize);
+
+    // Head
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(bunny.x + pSize * 3, bunny.y + pSize * 2, pSize * 2, pSize * 2);
+
+    // Ears - making them longer
+    ctx.fillStyle = earColor;
+    ctx.fillRect(bunny.x + pSize * 3, bunny.y, pSize, pSize * 3); // Back ear
+    ctx.fillStyle = bodyColor;
+    ctx.fillRect(bunny.x + pSize * 4, bunny.y + pSize, pSize, pSize * 2); // Front ear
+
+    // Eye
+    ctx.fillStyle = eyeColor;
+    ctx.fillRect(bunny.x + pSize * 4, bunny.y + pSize * 2, pSize, pSize);
+
+    ctx.restore();
+}
+
+function updateCreatures() {
+    creatures.forEach(creature => {
+        if (creature.type === 'bunny') {
+            // Apply gravity
+            creature.vy += 0.5;
+            creature.y += creature.vy;
+
+            // Simple AI
+            creature.aiTimer--;
+            if (creature.aiTimer <= 0) {
+                const action = Math.random();
+                if (action < 0.4) { // Hop
+                    if (creature.onGround) {
+                        creature.vy = -5; // Hop force
+                        creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 1 + 1);
+                        creature.onGround = false;
+                    }
+                } else if (action < 0.7) { // Change direction
+                    creature.direction = creature.direction === 'left' ? 'right' : 'left';
+                    creature.vx = 0;
+                } else { // Idle
+                    creature.vx = 0;
+                }
+                creature.aiTimer = Math.random() * 120 + 60; // Reset timer
+            }
+
+            // Player interaction
+            if (creature.dropCooldown > 0) {
+                creature.dropCooldown--;
+            } else {
+                const distToPlayer = Math.hypot(player.x - creature.x, player.y - creature.y);
+                if (distToPlayer < TILE_SIZE * 4) { // If player is close
+                    // Drop a heart
+                    hearts.push({ x: creature.x + creature.width / 2, y: creature.y, size: 10, life: 120, vy: -1 });
+                    // Hop away
+                    if (creature.onGround) {
+                        creature.vy = -6;
+                        creature.vx = player.x < creature.x ? 3 : -3; // Hop away from player
+                    }
+                    creature.dropCooldown = 300; // 5 second cooldown
+                }
+            }
+
+            // Horizontal movement
+            creature.x += creature.vx;
+
+            // World collision
+            creature.onGround = false;
+            const startY = Math.floor(creature.y / TILE_SIZE);
+            const endY = Math.floor((creature.y + creature.height) / TILE_SIZE);
+            const tileX = Math.floor((creature.x + creature.width / 2) / TILE_SIZE);
+
+            for (let y = startY; y <= endY; y++) {
+                if (world[y] && isSolid(world[y][tileX])) {
+                    const tile = { x: tileX * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
+                    if (checkCollision(creature, tile)) {
+                        if (creature.vy > 0) {
+                            creature.y = tile.y - creature.height;
+                            creature.vy = 0;
+                            creature.onGround = true;
+                            creature.vx *= 0.8; // Friction
+                        }
+                    }
+                }
+            }
+
+            // Screen bounds
+            if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
+            if (creature.x + creature.width > canvas.width) { creature.x = canvas.width - creature.width; creature.direction = 'left'; }
+        }
+    });
 }
 
 function updatePlayer() {
   // Horizontal movement
-  if (keys.a) player.vx = -player.speed;
-  else if (keys.d) player.vx = player.speed;
-  else player.vx = 0;
+  if (keys.a) {
+      player.vx = -player.speed;
+      player.direction = 'left';
+      player.isWalking = true;
+  } else if (keys.d) {
+      player.vx = player.speed;
+      player.direction = 'right';
+      player.isWalking = true;
+  } else {
+      player.vx = 0;
+      player.isWalking = false;
+  }
+
+  // Animation timing
+  player.walkFrameTimer++;
+  if (player.walkFrameTimer > 6) { player.walkFrame = 1 - player.walkFrame; player.walkFrameTimer = 0; }
 
   // Jumping
   if ((keys.w || keys[' ']) && player.onGround) {
@@ -481,6 +711,65 @@ function updatePlayer() {
   if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
 }
 
+function drawItemIcon(item, x, y, size) {
+    const p = size / 10; // Pixel size for icons
+    ctx.save();
+    ctx.translate(x, y);
+
+    switch (item.type) {
+        case 'axe':
+            ctx.fillStyle = '#8B5A2B'; // Handle
+            ctx.fillRect(p * 4, p * 2, p * 2, p * 7);
+            ctx.fillStyle = '#808080'; // Head
+            ctx.fillRect(p * 3, p, p * 4, p * 3);
+            break;
+        case 'pickaxe':
+            ctx.fillStyle = '#8B5A2B'; // Handle
+            ctx.fillRect(p * 4, p * 2, p * 2, p * 7);
+            ctx.fillStyle = '#808080'; // Head
+            ctx.fillRect(p * 2, p * 2, p * 6, p * 2);
+            break;
+        case 'stone':
+            drawStoneTile(p, p, size - 2 * p);
+            break;
+        case 'wood':
+            drawWoodTile(p, p, size - 2 * p);
+            break;
+        case 'dirt':
+            drawDirtTile(p, p, size - 2 * p);
+            break;
+        case 'lily':
+            ctx.fillStyle = tileColors.flowerStem;
+            ctx.fillRect(p * 4, p * 2, p * 2, p * 6);
+            ctx.fillStyle = tileColors.flowerPetal;
+            ctx.fillRect(p * 3, p, p * 4, p * 4);
+            break;
+    }
+    ctx.restore();
+}
+
+// Overload tile drawing functions to accept size for icons
+function drawStoneTile(x, y, size = TILE_SIZE) {
+    ctx.fillStyle = tileColors.stone;
+    ctx.fillRect(x, y, size, size);
+    ctx.fillStyle = '#6a6a6a';
+    ctx.fillRect(x + size * 0.2, y + size * 0.5, size * 0.25, size * 0.25);
+    ctx.fillStyle = '#9a9a9a';
+    ctx.fillRect(x + size * 0.6, y + size * 0.2, size * 0.2, size * 0.2);
+}
+function drawWoodTile(x, y, size = TILE_SIZE) {
+    ctx.fillStyle = tileColors.wood;
+    ctx.fillRect(x, y, size, size);
+    ctx.fillStyle = '#a86a32';
+    ctx.fillRect(x + size * 0.2, y, size * 0.2, size);
+}
+function drawDirtTile(x, y, size = TILE_SIZE) {
+    ctx.fillStyle = tileColors.dirt;
+    ctx.fillRect(x, y, size, size);
+    ctx.fillStyle = '#8c7365';
+    ctx.fillRect(x + size * 0.3, y + size * 0.2, size * 0.2, size * 0.2);
+}
+
 function drawInventory() {
     const slotSize = 50;
     const padding = 10;
@@ -501,12 +790,8 @@ function drawInventory() {
             ctx.strokeRect(slotX, startY, slotSize, slotSize);
         }
 
-        // Draw item name (simplified representation)
-        ctx.fillStyle = 'white';
-        ctx.font = '12px Segoe UI';
-        ctx.textAlign = 'center';
-        ctx.fillText(item.name, slotX + slotSize / 2, startY + 20);
-
+        // Draw item icon
+        drawItemIcon(item, slotX, startY, slotSize);
         // Draw amount if applicable
         if (item.amount !== undefined) {
             ctx.font = '10px Segoe UI';
@@ -519,13 +804,26 @@ function animate() {
   drawSky();
   drawWorld();
   drawBackground();
+  updateCreatures();
   updatePlayer();
   drawPlayer();
+  creatures.forEach(creature => {
+      if (creature.type === 'bunny') drawBunny(creature);
+  });
   drawInventory();
 
   hearts.forEach(heart => {
-    drawHeart(heart.x, heart.y, heart.size);
+      drawHeart(heart.x, heart.y, heart.size);
   });
+
+    // Update and filter hearts with a life property
+    for (let i = hearts.length - 1; i >= 0; i--) {
+        const heart = hearts[i];
+        if (heart.life !== undefined) {
+            heart.life--;
+            if (heart.life <= 0) hearts.splice(i, 1);
+        }
+    }
 
   requestAnimationFrame(animate);
 }
@@ -534,6 +832,7 @@ window.addEventListener('resize', () => {
     resizeCanvas();
     initBackgroundParticles();
     initClouds();
+    initCreatures(Math.floor(worldHeight * 0.8));
 });
 resizeCanvas();
 initBackgroundParticles();
