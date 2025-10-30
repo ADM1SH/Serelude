@@ -49,7 +49,9 @@ const tileColors = {
     dirt: '#A9907E',
     stone: '#808080',
     wood: '#8B5A2B',
-    leaves: '#556B2F'
+    leaves: '#556B2F',
+    flowerStem: '#6B8E23', // Olive Drab
+    flowerPetal: '#FAFAF0' // Cream
 };
 
 const timePalettes = {
@@ -92,6 +94,7 @@ function initWorld() {
   player.y = groundLevelY * TILE_SIZE - player.height;
 
   generateTrees(groundLevelY);
+  generateFlowers(groundLevelY);
 }
 
 function generateTrees(groundLevelY) {
@@ -119,32 +122,105 @@ function generateTrees(groundLevelY) {
     }
 }
 
+function generateFlowers(groundLevelY) {
+    for (let x = 0; x < worldWidth; x++) {
+        // Check if the ground is grass and there's empty space above
+        if (world[groundLevelY][x] === 1 && world[groundLevelY - 1][x] === 0) {
+            // 15% chance to plant a flower
+            if (Math.random() < 0.15) {
+                const flowerHeight = 2; // Stem + Petal
+                // Place stem
+                world[groundLevelY - 1][x] = 6; // flowerStem
+                // Place petal
+                world[groundLevelY - 2][x] = 7; // flowerPetal
+            }
+        }
+    }
+}
+
 function isSolid(tileType) {
     // 1: grass, 2: dirt, 3: stone are solid.
     // 4: wood, 5: leaves are background tiles and not solid.
     return tileType === 1 || tileType === 2 || tileType === 3;
 }
 
-function drawWorld() {
-    // Draw background tiles first (trees)
-    for (let y = 0; y < worldHeight; y++) {
-        for (let x = 0; x < worldWidth; x++) {
-            const tileType = world[y][x];
-            if (tileType === 4 || tileType === 5) { // Wood or Leaves
-                ctx.fillStyle = tileType === 4 ? tileColors.wood : tileColors.leaves;
-                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-            }
-        }
-    }
+function drawGrassTile(x, y) {
+    ctx.fillStyle = tileColors.dirt; // Dirt base
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    ctx.fillStyle = tileColors.grass; // Grass top
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE / 2);
+    // Add some darker green "blades"
+    ctx.fillStyle = '#8a9e7c';
+    ctx.fillRect(x + TILE_SIZE * 0.2, y, TILE_SIZE * 0.2, TILE_SIZE * 0.5);
+    ctx.fillRect(x + TILE_SIZE * 0.7, y, TILE_SIZE * 0.2, TILE_SIZE * 0.5);
+}
 
-    // Draw foreground tiles (solid ground)
+function drawDirtTile(x, y) {
+    ctx.fillStyle = tileColors.dirt;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    // Add darker specks for texture
+    ctx.fillStyle = '#8c7365';
+    ctx.fillRect(x + TILE_SIZE * 0.3, y + TILE_SIZE * 0.2, 4, 4);
+    ctx.fillRect(x + TILE_SIZE * 0.7, y + TILE_SIZE * 0.6, 4, 4);
+}
+
+function drawStoneTile(x, y) {
+    ctx.fillStyle = tileColors.stone;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    // Add darker and lighter specks
+    ctx.fillStyle = '#6a6a6a';
+    ctx.fillRect(x + TILE_SIZE * 0.2, y + TILE_SIZE * 0.5, 5, 5);
+    ctx.fillStyle = '#9a9a9a';
+    ctx.fillRect(x + TILE_SIZE * 0.6, y + TILE_SIZE * 0.2, 4, 4);
+}
+
+function drawWoodTile(x, y) {
+    ctx.fillStyle = tileColors.wood;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    // Add vertical lines for bark texture
+    ctx.fillStyle = '#a86a32';
+    ctx.fillRect(x + TILE_SIZE * 0.2, y, TILE_SIZE * 0.2, TILE_SIZE);
+    ctx.fillRect(x + TILE_SIZE * 0.7, y, TILE_SIZE * 0.1, TILE_SIZE);
+}
+
+function drawLeavesTile(x, y) {
+    ctx.fillStyle = tileColors.leaves;
+    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+    // Add lighter green specks
+    ctx.fillStyle = '#6b8e23';
+    ctx.fillRect(x + TILE_SIZE * 0.1, y + TILE_SIZE * 0.1, TILE_SIZE * 0.4, TILE_SIZE * 0.4);
+    ctx.fillRect(x + TILE_SIZE * 0.5, y + TILE_SIZE * 0.5, TILE_SIZE * 0.4, TILE_SIZE * 0.4);
+}
+
+function drawFlowerStemTile(x, y) {
+    ctx.fillStyle = tileColors.flowerStem;
+    ctx.fillRect(x + TILE_SIZE * 0.4, y, TILE_SIZE * 0.2, TILE_SIZE);
+}
+
+function drawFlowerPetalTile(x, y) {
+    // Draw the hanging bell-shaped flower
+    ctx.fillStyle = tileColors.flowerPetal;
+    ctx.fillRect(x + TILE_SIZE * 0.3, y + TILE_SIZE * 0.5, TILE_SIZE * 0.4, TILE_SIZE * 0.4);
+    ctx.fillStyle = '#e0e0d1'; // Slightly darker shade for depth
+    ctx.fillRect(x + TILE_SIZE * 0.4, y + TILE_SIZE * 0.4, TILE_SIZE * 0.2, TILE_SIZE * 0.2);
+}
+
+function drawWorld() {
+    // Draw all tiles with new detailed functions
     for (let y = 0; y < worldHeight; y++) {
         for (let x = 0; x < worldWidth; x++) {
             const tileType = world[y][x];
-            if (isSolid(tileType)) {
-                let color = tileType === 1 ? tileColors.grass : (tileType === 2 ? tileColors.dirt : tileColors.stone);
-                ctx.fillStyle = color;
-                ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            const tileX = x * TILE_SIZE;
+            const tileY = y * TILE_SIZE;
+
+            switch (tileType) {
+                case 1: drawGrassTile(tileX, tileY); break;
+                case 2: drawDirtTile(tileX, tileY); break;
+                case 3: drawStoneTile(tileX, tileY); break;
+                case 4: drawWoodTile(tileX, tileY); break;
+                case 5: drawLeavesTile(tileX, tileY); break;
+                case 6: drawFlowerStemTile(tileX, tileY); break;
+                case 7: drawFlowerPetalTile(tileX, tileY); break;
             }
         }
     }
