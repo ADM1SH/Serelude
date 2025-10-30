@@ -56,24 +56,28 @@ function resizeCanvas() {
 }
 
 function initWorld() {
-    world = [];
-    for (let y = 0; y < worldHeight; y++) {
-        let row = [];
-        for (let x = 0; x < worldWidth; x++) {
-            if (y < worldHeight * 0.6) {
-                row.push(0); // Sky
-            } else if (y < worldHeight * 0.6 + 1) {
-                row.push(1); // Grass
-            } else {
-                row.push(2); // Dirt
-            }
-        }
-        world.push(row);
-    }
+  world = [];
+  for (let y = 0; y < worldHeight; y++) {
+    world.push(new Array(worldWidth).fill(0));
+  }
 
-    // Set player start position
-    player.x = worldWidth * TILE_SIZE / 2;
-    player.y = worldHeight * 0.6 * TILE_SIZE - TILE_SIZE * 2;
+  const groundLevelY = Math.floor(worldHeight * 0.8); // A fixed level for the ground
+
+  for (let y = 0; y < worldHeight; y++) {
+    for (let x = 0; x < worldWidth; x++) {
+      if (y === groundLevelY) {
+        world[y][x] = 1; // Grass on top
+      } else if (y > groundLevelY) {
+        world[y][x] = 2; // Dirt below
+      } else {
+        world[y][x] = 0; // Sky
+      }
+    }
+  }
+
+  // Set player start position on the flat ground
+  player.x = worldWidth * TILE_SIZE / 2;
+  player.y = groundLevelY * TILE_SIZE - player.height;
 }
 
 function drawWorld() {
@@ -287,14 +291,18 @@ function updatePlayer() {
   // --- Horizontal Collision ---
   player.x += player.vx;
 
-  const startX = Math.floor(player.x / TILE_SIZE);
-  const endX = Math.floor((player.x + player.width) / TILE_SIZE);
-  const startY = Math.floor(player.y / TILE_SIZE);
-  const endY = Math.floor((player.y + player.height) / TILE_SIZE);
+  let startX = Math.floor(player.x / TILE_SIZE);
+  let endX = Math.floor((player.x + player.width) / TILE_SIZE);
+  let startY = Math.floor(player.y / TILE_SIZE);
+  let endY = Math.floor((player.y + player.height) / TILE_SIZE);
 
   for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
           if (world[y] && world[y][x] > 0) {
+              // Make sure we don't check tiles that are out of bounds
+              if (y < 0 || y >= worldHeight || x < 0 || x >= worldWidth) {
+                  continue;
+              }
               const tile = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
               if (checkCollision(player, tile)) {
                   if (player.vx > 0) { // Moving right
@@ -312,9 +320,18 @@ function updatePlayer() {
   player.y += player.vy;
   player.onGround = false;
 
+  // Recalculate tile coordinates for vertical collision with the new player.y
+  startX = Math.floor(player.x / TILE_SIZE);
+  endX = Math.floor((player.x + player.width) / TILE_SIZE);
+  startY = Math.floor(player.y / TILE_SIZE);
+  endY = Math.floor((player.y + player.height) / TILE_SIZE);
+
   for (let y = startY; y <= endY; y++) {
       for (let x = startX; x <= endX; x++) {
           if (world[y] && world[y][x] > 0) {
+              if (y < 0 || y >= worldHeight || x < 0 || x >= worldWidth) {
+                  continue;
+              }
               const tile = { x: x * TILE_SIZE, y: y * TILE_SIZE, width: TILE_SIZE, height: TILE_SIZE };
               if (checkCollision(player, tile)) {
                   if (player.vy > 0) { // Moving down
