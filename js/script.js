@@ -29,7 +29,8 @@ const inventory = {
         { type: 'stone', name: 'Stone', amount: 0 },
         { type: 'wood', name: 'Wood', amount: 0 },
         { type: 'dirt', name: 'Dirt', amount: 0 },
-        { type: 'lily', name: 'Lily', amount: 0 }
+        { type: 'lily', name: 'Lily', amount: 0 },
+        { type: 'sapling', name: 'Sapling', amount: 0 }
     ],
     selectedSlot: 0
 };
@@ -58,7 +59,8 @@ const tileColors = {
     wood: '#8B5A2B',
     leaves: '#556B2F',
     flowerStem: '#6B8E23', // Olive Drab
-    flowerPetal: '#FAFAF0' // Cream
+    flowerPetal: '#FAFAF0', // Cream
+    sapling: '#a86a32'
 };
 
 const timePalettes = {
@@ -226,6 +228,19 @@ function initCreatures(groundLevelY) {
             dropCooldown: 0
         });
     }
+    for (let i = 0; i < 5; i++) { // Spawn 5 birds
+        creatures.push({
+            type: 'bird',
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height * 0.4, // Spawn in the upper sky
+            width: TILE_SIZE * 0.6,
+            height: TILE_SIZE * 0.6,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2,
+            direction: 'right',
+            aiTimer: Math.random() * 100
+        });
+    }
 }
 
 function isSolid(tileType) {
@@ -295,6 +310,36 @@ function drawFlowerPetalTile(x, y) {
     ctx.fillRect(x + TILE_SIZE * 0.4, y + TILE_SIZE * 0.4, TILE_SIZE * 0.2, TILE_SIZE * 0.2);
 }
 
+function drawBird(bird) {
+    ctx.save();
+    const birdCenterX = bird.x + bird.width / 2;
+
+    if (bird.direction === 'left') {
+        ctx.translate(birdCenterX, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-birdCenterX, 0);
+    }
+    
+    const pSize = bird.width / 4; // Use a 4-pixel grid for the bird's width
+    ctx.fillStyle = '#4a4a4a'; // Dark grey
+
+    // Body
+    ctx.fillRect(bird.x + pSize, bird.y + pSize, pSize * 2, pSize);
+    // Head
+    ctx.fillRect(bird.x + pSize * 3, bird.y, pSize, pSize);
+    // Wing
+    ctx.fillRect(bird.x, bird.y, pSize * 2, pSize);
+
+    ctx.restore();
+}
+
+function drawSaplingTile(x, y) {
+    ctx.fillStyle = tileColors.sapling;
+    ctx.fillRect(x + TILE_SIZE * 0.4, y + TILE_SIZE * 0.5, TILE_SIZE * 0.2, TILE_SIZE * 0.5); // Stem
+    ctx.fillStyle = tileColors.leaves;
+    ctx.fillRect(x + TILE_SIZE * 0.3, y + TILE_SIZE * 0.3, TILE_SIZE * 0.4, TILE_SIZE * 0.4); // Tiny leaf
+}
+
 function drawWorld() {
     // Draw all tiles with new detailed functions
     for (let y = 0; y < worldHeight; y++) {
@@ -311,6 +356,7 @@ function drawWorld() {
                 case 5: drawLeavesTile(tileX, tileY); break;
                 case 6: drawFlowerStemTile(tileX, tileY); break;
                 case 7: drawFlowerPetalTile(tileX, tileY); break;
+                case 8: drawSaplingTile(tileX, tileY); break;
             }
         }
     }
@@ -679,6 +725,26 @@ function updateCreatures() {
             // Screen bounds
             if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
             if (creature.x + creature.width > canvas.width) { creature.x = canvas.width - creature.width; creature.direction = 'left'; }
+        } else if (creature.type === 'bird') {
+            creature.aiTimer--;
+            if (creature.aiTimer <= 0) {
+                creature.vx += (Math.random() - 0.5) * 0.5;
+                creature.vy += (Math.random() - 0.5) * 0.5;
+                // Clamp velocity
+                creature.vx = Math.max(-1, Math.min(1, creature.vx));
+                creature.vy = Math.max(-1, Math.min(1, creature.vy));
+                creature.aiTimer = Math.random() * 100 + 50;
+            }
+
+            creature.x += creature.vx;
+            creature.y += creature.vy;
+            creature.direction = creature.vx >= 0 ? 'right' : 'left';
+
+            // Screen bounds for birds
+            if (creature.x < 0 || creature.x + creature.width > canvas.width) creature.vx *= -1;
+            if (creature.y < 0 || creature.y + creature.height > canvas.height * 0.6) creature.vy *= -1;
+
+
         }
     });
 }
@@ -776,63 +842,125 @@ function updatePlayer() {
 }
 
 function drawItemIcon(item, x, y, size) {
-    const p = size / 10; // Pixel size for icons
+    const p = size / 16; // Use a higher resolution 16x16 grid for icons
     ctx.save();
     ctx.translate(x, y);
 
     switch (item.type) {
         case 'axe':
-            ctx.fillStyle = '#8B5A2B'; // Handle
-            ctx.fillRect(p * 4, p * 2, p * 2, p * 7);
-            ctx.fillStyle = '#808080'; // Head
-            ctx.fillRect(p * 3, p, p * 4, p * 3);
+            // Handle
+            ctx.fillStyle = '#a86a32'; // Lighter wood
+            ctx.fillRect(p * 7, p * 5, p * 2, p * 9);
+            ctx.fillRect(p * 6, p * 6, p, p * 7);
+            ctx.fillStyle = '#8B5A2B'; // Darker wood
+            ctx.fillRect(p * 8, p * 5, p, p * 8);
+            // Head
+            ctx.fillStyle = '#6a6a6a'; // Darker metal
+            ctx.fillRect(p * 5, p * 2, p * 6, p * 5);
+            ctx.fillRect(p * 6, p * 1, p * 4, p * 6);
+            ctx.fillStyle = '#808080'; // Main metal
+            ctx.fillRect(p * 6, p * 2, p * 4, p * 4);
+            ctx.fillStyle = '#9a9a9a'; // Highlight
+            ctx.fillRect(p * 5, p * 3, p, p * 2);
+            ctx.fillRect(p * 10, p * 3, p, p * 2);
             break;
         case 'pickaxe':
-            ctx.fillStyle = '#8B5A2B'; // Handle
-            ctx.fillRect(p * 4, p * 2, p * 2, p * 7);
-            ctx.fillStyle = '#808080'; // Head
-            ctx.fillRect(p * 2, p * 2, p * 6, p * 2);
+            // Handle
+            ctx.fillStyle = '#a86a32';
+            ctx.fillRect(p * 7, p * 4, p * 2, p * 10);
+            ctx.fillStyle = '#8B5A2B';
+            ctx.fillRect(p * 8, p * 4, p, p * 9);
+            // Head
+            ctx.fillStyle = '#6a6a6a';
+            ctx.fillRect(p * 4, p * 3, p * 8, p * 3);
+            ctx.fillRect(p * 3, p * 4, p * 10, p);
+            ctx.fillStyle = '#808080';
+            ctx.fillRect(p * 5, p * 4, p * 6, p);
+            ctx.fillStyle = '#9a9a9a';
+            ctx.fillRect(p * 3, p * 3, p * 2, p);
+            ctx.fillRect(p * 11, p * 3, p * 2, p);
             break;
         case 'stone':
             drawStoneIcon(0, 0, size);
             break;
         case 'wood':
-            drawWoodIcon(p, p, size - 2 * p);
+            drawWoodIcon(0, 0, size);
             break;
         case 'dirt':
-            drawDirtIcon(p, p, size - 2 * p);
+            drawDirtIcon(0, 0, size);
             break;
         case 'lily':
+            // Stem
             ctx.fillStyle = tileColors.flowerStem;
-            ctx.fillRect(p * 4, p * 2, p * 2, p * 6);
+            ctx.fillRect(p * 7, p * 5, p * 2, p * 8);
+            // Petals
             ctx.fillStyle = tileColors.flowerPetal;
-            ctx.fillRect(p * 3, p * 2, p * 4, p * 3);
+            ctx.fillRect(p * 6, p * 4, p * 4, p * 2);
+            ctx.fillRect(p * 5, p * 5, p * 2, p * 2);
+            ctx.fillRect(p * 9, p * 5, p * 2, p * 2);
+            // Darker shade
+            ctx.fillStyle = '#e0e0d1';
+            ctx.fillRect(p * 7, p * 5, p * 2, p);
+            break;
+        case 'sapling':
+            ctx.fillStyle = tileColors.sapling;
+            ctx.fillRect(p * 7, p * 8, p * 2, p * 6);
+            ctx.fillStyle = tileColors.leaves;
+            ctx.fillRect(p * 6, p * 5, p * 4, p * 4);
             break;
     }
     ctx.restore();
 }
 
 function drawStoneIcon(x, y, size) {
-    const p = size / 10;
+    const p = size / 16;
     // Main face
     ctx.fillStyle = tileColors.stone;
-    ctx.fillRect(x + p, y + p * 2, p * 8, p * 7);
+    ctx.fillRect(x + p * 2, y + p * 5, p * 12, p * 10);
     // Top face
     ctx.fillStyle = '#9a9a9a';
     ctx.beginPath();
-    ctx.moveTo(x + p, y + p * 2);
-    ctx.lineTo(x + p * 3, y);
-    ctx.lineTo(x + p * 11, y);
-    ctx.lineTo(x + p * 9, y + p * 2);
+    ctx.moveTo(x + p * 2, y + p * 5);
+    ctx.lineTo(x + p * 5, y + p * 2);
+    ctx.lineTo(x + p * 17, y + p * 2);
+    ctx.lineTo(x + p * 14, y + p * 5);
     ctx.closePath();
     ctx.fill();
 }
 
 function drawWoodIcon(x, y, size) {
-    drawWoodTile(x, y, size); // The existing 2D version looks good for a stack
+    const p = size / 16;
+    // Main face
+    ctx.fillStyle = tileColors.wood;
+    ctx.fillRect(x + p * 2, y + p * 5, p * 12, p * 10);
+    // Top face
+    ctx.fillStyle = '#a86a32';
+    ctx.beginPath();
+    ctx.moveTo(x + p * 2, y + p * 5);
+    ctx.lineTo(x + p * 5, y + p * 2);
+    ctx.lineTo(x + p * 17, y + p * 2);
+    ctx.lineTo(x + p * 14, y + p * 5);
+    ctx.closePath();
+    ctx.fill();
+    // Wood grain
+    ctx.fillStyle = '#6a4521';
+    ctx.fillRect(x + p * 4, y + p * 5, p, p * 10);
+    ctx.fillRect(x + p * 10, y + p * 5, p, p * 10);
 }
 function drawDirtIcon(x, y, size) {
-    drawDirtTile(x, y, size); // The existing 2D version looks good for a stack
+    const p = size / 16;
+    // Main face
+    ctx.fillStyle = tileColors.dirt;
+    ctx.fillRect(x + p * 2, y + p * 5, p * 12, p * 10);
+    // Top face (grass)
+    ctx.fillStyle = tileColors.grass;
+    ctx.beginPath();
+    ctx.moveTo(x + p * 2, y + p * 5);
+    ctx.lineTo(x + p * 5, y + p * 2);
+    ctx.lineTo(x + p * 17, y + p * 2);
+    ctx.lineTo(x + p * 14, y + p * 5);
+    ctx.closePath();
+    ctx.fill();
 }
 
 // Overload tile drawing functions to accept size for icons
@@ -922,7 +1050,11 @@ function animate() {
   updatePlayer();
   drawPlayer();
   creatures.forEach(creature => {
-      if (creature.type === 'bunny') drawBunny(creature);
+      if (creature.type === 'bunny') {
+          drawBunny(creature);
+      } else if (creature.type === 'bird') {
+          drawBird(creature);
+      }
   });
   drawInventory();
     
@@ -1095,6 +1227,49 @@ document.addEventListener('keydown', (e) => {
         document.getElementById('message2').classList.add('fade-in');
     }
 });
+
+function destroyTree(x, y) {
+    const queue = [[x, y]];
+    const visited = new Set([`${x},${y}`]);
+
+    const processQueue = () => {
+        if (queue.length === 0) return;
+
+        const [cx, cy] = queue.shift();
+        const tileType = world[cy]?.[cx];
+
+        if (tileType === 4 || tileType === 5) { // Wood or Leaves
+            world[cy][cx] = 0; // Remove block
+            if (tileType === 5 && Math.random() < 0.05) {
+                inventory.items.find(i => i.type === 'sapling').amount++;
+            }
+
+            // Check neighbors
+            for (const [dx, dy] of [[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]]) {
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (!visited.has(`${nx},${ny}`)) {
+                    visited.add(`${nx},${ny}`);
+                    queue.push([nx, ny]);
+                }
+            }
+        }
+        setTimeout(processQueue, 20); // Process next block after a short delay
+    };
+    processQueue();
+}
+
+function growTree(x, y) {
+    if (world[y]?.[x] !== 8) return; // Check if sapling is still there
+
+    const treeHeight = Math.floor(Math.random() * 4) + 4;
+    const treeTopY = y - treeHeight + 1;
+
+    for (let i = 0; i < treeHeight; i++) world[y - i][x] = 4; // Trunk
+    for (let ly = -1; ly <= 1; ly++) { // Canopy
+        for (let lx = -1; lx <= 1; lx++) world[treeTopY + ly][x + lx] = 5;
+    }
+}
 
 document.addEventListener('keyup', (e) => {
     if (e.key in keys) keys[e.key] = false;
