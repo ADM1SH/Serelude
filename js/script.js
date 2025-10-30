@@ -491,15 +491,16 @@ function drawPlayer() {
 
 function drawHeart(cx, cy, size) {
     ctx.fillStyle = '#F2A9A9'; // blush pink
-    const s = size / 4; // pixel size
-    ctx.fillRect(cx - s, cy - s * 2, s, s);
-    ctx.fillRect(cx + s, cy - s * 2, s, s);
-    ctx.fillRect(cx - s * 2, cy - s, s, s);
-    ctx.fillRect(cx, cy - s, s, s);
-    ctx.fillRect(cx + s * 2, cy - s, s, s);
-    ctx.fillRect(cx - s, cy, s, s * 2); // Made body slightly longer
-    ctx.fillRect(cx + s, cy, s, s * 2);
-    ctx.fillRect(cx, cy + s, s, s);
+    const s = size / 5; // Use a 5-pixel grid for better shape
+
+    // Top lobes
+    ctx.fillRect(cx - s * 1.5, cy - s * 2, s, s);
+    ctx.fillRect(cx + s * 0.5, cy - s * 2, s, s);
+    // Body
+    ctx.fillRect(cx - s * 2.5, cy - s, s * 5, s * 3);
+    // Point
+    ctx.fillRect(cx - s * 1.5, cy + s * 2, s * 3, s);
+    ctx.fillRect(cx - s * 0.5, cy + s * 3, s, s);
 }
 
 function drawBunny(bunny) {
@@ -811,17 +812,43 @@ function animate() {
       if (creature.type === 'bunny') drawBunny(creature);
   });
   drawInventory();
+    
+    // Spawn new falling hearts continuously
+    if (Math.random() < 0.05) { // Adjust chance for more/less hearts
+        hearts.push({
+            x: Math.random() * canvas.width,
+            y: -20, // Start above screen
+            size: Math.random() * 10 + 5,
+            vy: Math.random() * 1 + 0.5 // Falling speed
+        });
+    }
 
-  hearts.forEach(heart => {
-      drawHeart(heart.x, heart.y, heart.size);
-  });
-
-    // Update and filter hearts with a life property
+    // Update and draw all hearts
     for (let i = hearts.length - 1; i >= 0; i--) {
         const heart = hearts[i];
+        let alpha = 1.0;
+
         if (heart.life !== undefined) {
+            // It's a heart from a bunny - float up and fade out
+            heart.y += heart.vy;
+            heart.vy *= 0.98; // Slow down the ascent
+            alpha = heart.life / 120; // Fade based on lifetime
             heart.life--;
-            if (heart.life <= 0) hearts.splice(i, 1);
+        } else {
+            // It's a falling heart - fade out at the bottom
+            heart.y += heart.vy;
+            if (heart.y > canvas.height * 0.8) {
+                alpha = 1 - (heart.y - canvas.height * 0.8) / (canvas.height * 0.2);
+            }
+        }
+
+        ctx.globalAlpha = Math.max(0, alpha);
+        drawHeart(heart.x, heart.y, heart.size);
+        ctx.globalAlpha = 1.0; // Reset global alpha
+
+        // Remove heart if it's off-screen or its life expires
+        if (heart.y > canvas.height + 20 || (heart.life !== undefined && heart.life <= 0)) {
+            hearts.splice(i, 1);
         }
     }
 
@@ -952,11 +979,7 @@ document.addEventListener('keydown', (e) => {
 
     if (e.key in keys) keys[e.key] = true;
 
-    if (e.key === 'h') {
-        for (let i = 0; i < 10; i++) {
-            hearts.push({x: Math.random() * canvas.width, y: Math.random() * canvas.height, size: Math.random() * 10 + 5});
-        }
-    } else if (e.key === 't') {
+    if (e.key === 't') {
         document.getElementById('message1').classList.add('fade-in');
         document.getElementById('message2').classList.add('fade-in');
     }

@@ -14,10 +14,14 @@ You can interact with the animation using the following keyboard and mouse contr
 ### Key Presses
 *   **'a' / 'd'**: Move the character left and right.
 *   **'w' / 'space'**: Make the character jump.
+*   **'1' - '6'**: Select an item in the inventory bar.
 *   **'t'**: Fades in the text messages: "Happy two months, my love" and "I love you".
 *   **'h'**: Triggers a "heart shower," scattering a burst of hearts across the screen.
 
 ### Mouse Actions
 *   **Click on the sky**: Places a stone block in the world.
+*   **Click on the world**:
+    *   If a tool (Axe, Pickaxe) is selected, you will mine the appropriate block (trees, stone, dirt).
+    *   If a resource (Wood, Stone, etc.) is selected, you will place that block in an empty space.
 *   **Click and drag the sun/moon**: Manually control the time of day, transitioning between dawn, midday, dusk, and night.
 *   **Hover over the text**: After revealing the text with the 't' key, hovering over it will cause the text to glow with a soft pink shadow.
