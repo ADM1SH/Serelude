@@ -1105,7 +1105,7 @@ document.getElementById('close-note-btn').addEventListener('click', () => {
 });
 
 document.getElementById('controls-tab').addEventListener('click', () => {
-    document.getElementById('controls-note').classList.remove('hidden');
+    document.getElementById('controls-note').classList.toggle('hidden');
 });
 
 document.getElementById('save-btn').addEventListener('click', saveGameState);
@@ -1131,5 +1131,61 @@ function startGame() {
     requestAnimationFrame(animate);
 }
 
-startGame();
-requestAnimationFrame(animate);
+function drawPixelText(ctx, text, startX, startY, pixelSize, color) {
+    const font = {
+        'S': [[1,0],[2,0],[3,0],[0,1],[1,2],[2,2],[3,2],[4,3],[1,4],[2,4],[3,4]],
+        'E': [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[1,2],[2,2],[0,3],[0,4],[1,4],[2,4],[3,4]],
+        'R': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[1,2],[0,3],[2,3],[0,4],[3,4]],
+        'L': [[0,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4]],
+        'U': [[0,0],[3,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[1,4],[2,4]],
+        'D': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[0,4],[1,4],[2,4]],
+        'heart': [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]]
+    };
+
+    ctx.fillStyle = color;
+    let currentX = startX;
+
+    for (const char of text.toUpperCase()) {
+        if (font[char]) {
+            font[char].forEach(p => {
+                ctx.fillRect(currentX + p[0] * pixelSize, startY + p[1] * pixelSize, pixelSize, pixelSize);
+            });
+            currentX += 6 * pixelSize; // Advance for next character
+        }
+    }
+    return currentX; // Return position after last char
+}
+
+function drawLogo() {
+    const logoCanvas = document.getElementById('logo-canvas');
+    if (!logoCanvas) return;
+    const logoCtx = logoCanvas.getContext('2d');
+    const pixelSize = 4;
+    
+    logoCtx.clearRect(0, 0, logoCanvas.width, logoCanvas.height);
+
+    // Draw "Serelude"
+    const textEndX = drawPixelText(logoCtx, 'SERELUDE', 20, 30, pixelSize, '#2E2E2E');
+
+    // Draw heart
+    const heartData = [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]];
+    logoCtx.fillStyle = '#F2A9A9';
+    heartData.forEach(p => {
+        logoCtx.fillRect(textEndX + p[0] * pixelSize, 30 + p[1] * pixelSize, pixelSize, pixelSize);
+    });
+}
+
+// --- Game Start Logic ---
+
+// Draw the logo as soon as the script loads
+drawLogo();
+
+document.getElementById('start-game-btn').addEventListener('click', () => {
+    const titleScreen = document.getElementById('title-screen');
+    titleScreen.classList.add('hidden');
+
+    // Wait for fade out animation to finish before starting the game
+    titleScreen.addEventListener('transitionend', () => {
+        startGame();
+    }, { once: true });
+});
