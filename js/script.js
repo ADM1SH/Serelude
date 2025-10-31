@@ -88,7 +88,9 @@ const g = {
 
     init: function() {
         this.x = this.c.getContext('2d');
+        this.x.imageSmoothingEnabled = false;
         this.mx = this.mc.getContext('2d');
+        this.mx.imageSmoothingEnabled = false;
         this.minimapBuffer = document.createElement('canvas');
         this.minimapBufferCtx = this.minimapBuffer.getContext('2d');
 
@@ -106,12 +108,6 @@ const g = {
                 return;
             }
             if (e.key in this.keys) this.keys[e.key] = true;
-            if (e.key === 'c') {
-                document.getElementById('controls-note').classList.toggle('hidden');
-            } else if (e.key === 't') {
-                document.getElementById('message1').classList.add('fade-in');
-                document.getElementById('message2').classList.add('fade-in');
-            }
         });
 
         document.addEventListener('keyup', (e) => {
@@ -255,24 +251,6 @@ const g = {
                 }
             }
             if (worldModified) {
-                this.renderMinimapBackground();
-            }
-        });
-
-        document.getElementById('close-note-btn').addEventListener('click', () => {
-            document.getElementById('controls-note').classList.add('hidden');
-        });
-
-        document.getElementById('controls-tab').addEventListener('click', () => {
-            document.getElementById('controls-note').classList.remove('hidden');
-        });
-
-        document.getElementById('save-btn').addEventListener('click', () => this.saveGameState());
-
-        document.getElementById('reset-btn').addEventListener('click', () => {
-            if (confirm("Are you sure you want to start a new world? Your current saved world will be lost.")) {
-                localStorage.removeItem('SereludeSaveData');
-                this.initWorld();
                 this.renderMinimapBackground();
             }
         });
@@ -1650,19 +1628,21 @@ const g = {
 
     renderMinimapBackground: function() {
         // For now, render a fixed size minimap based on initial world dimensions
-        // This will need to be updated for a truly infinite minimap
-        const minimapDisplayWidth = 200;
-        const minimapDisplayHeight = Math.floor(this.worldHeight * (minimapDisplayWidth / this.worldWidth));
+        const minimapDisplayWidth = 200; // Smaller minimap
+        const minimapViewRange = 100; // How many tiles to show around the player
+        const minimapDisplayHeight = Math.floor(minimapViewRange * (minimapDisplayWidth / minimapViewRange));
         this.minimapBuffer.width = minimapDisplayWidth;
         this.minimapBuffer.height = minimapDisplayHeight;
 
         this.minimapBufferCtx.clearRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
 
-        // Iterate over a fixed area for minimap, or loaded chunks
-        const startWorldX = 0; // For now, assume minimap starts at 0,0
-        const endWorldX = this.worldWidth; // Use initial worldWidth for minimap scale
-        const startWorldY = 0;
-        const endWorldY = this.worldHeight;
+        const playerTileX = Math.floor(this.player.x / this.TILE_SIZE);
+        const playerTileY = Math.floor(this.player.y / this.TILE_SIZE);
+
+        const startWorldX = playerTileX - minimapViewRange / 2;
+        const endWorldX = playerTileX + minimapViewRange / 2;
+        const startWorldY = playerTileY - minimapViewRange / 2;
+        const endWorldY = playerTileY + minimapViewRange / 2;
 
         for (let y = startWorldY; y < endWorldY; y++) {
             for (let x = startWorldX; x < endWorldX; x++) {
@@ -1681,11 +1661,10 @@ const g = {
                     case 13: color = this.tileColors.roseRed; break;
                 }
                 if (color !== 'transparent') {
-                    // Scale down to minimap buffer size
-                    const minimapX = Math.floor(x * (minimapDisplayWidth / this.worldWidth));
-                    const minimapY = Math.floor(y * (minimapDisplayHeight / this.worldHeight));
+                    const minimapX = Math.floor((x - startWorldX) * (minimapDisplayWidth / minimapViewRange));
+                    const minimapY = Math.floor((y - startWorldY) * (minimapDisplayHeight / minimapViewRange));
                     this.minimapBufferCtx.fillStyle = color;
-                    this.minimapBufferCtx.fillRect(minimapX, minimapY, 1, 1);
+                    this.minimapBufferCtx.fillRect(minimapX, minimapY, 2, 2);
                 }
             }
         }
@@ -1693,7 +1672,8 @@ const g = {
 
     drawMinimap: function() {
         const minimapDisplayWidth = 200;
-        const minimapDisplayHeight = Math.floor(this.worldHeight * (minimapDisplayWidth / this.worldWidth));
+        const minimapViewRange = 100;
+        const minimapDisplayHeight = Math.floor(minimapViewRange * (minimapDisplayWidth / minimapViewRange));
 
         this.mc.width = minimapDisplayWidth;
         this.mc.height = minimapDisplayHeight;
@@ -1701,11 +1681,12 @@ const g = {
         this.mx.clearRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
         this.mx.drawImage(this.minimapBuffer, 0, 0, minimapDisplayWidth, minimapDisplayHeight);
 
-        const playerMinimapX = (this.player.x / this.TILE_SIZE) * (minimapDisplayWidth / this.worldWidth);
-        const playerMinimapY = (this.player.y / this.TILE_SIZE) * (minimapDisplayHeight / this.worldHeight);
+        // Player is always in the center of the zoomed-in minimap
+        const playerMinimapX = minimapDisplayWidth / 2;
+        const playerMinimapY = minimapDisplayHeight / 2;
 
         this.mx.fillStyle = 'white';
-        this.mx.fillRect(playerMinimapX - 3, playerMinimapY - 3, 6, 6);
+        this.mx.fillRect(playerMinimapX - 2, playerMinimapY - 2, 4, 4);
     },
 
     destroyTree: function(x, y) {
@@ -1793,6 +1774,7 @@ const g = {
             else if (creature.type === 'firefly' && this.isNight) this.drawFirefly(creature);
         });
 
+        this.renderMinimapBackground(); // Update minimap view every frame
         this.drawInventory();
         this.drawMinimap();
         this.drawRainingHearts();
