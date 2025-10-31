@@ -1,8 +1,10 @@
-const game = {
-    canvas: document.getElementById('animationCanvas'),
-    ctx: null,
-    minimapCanvas: document.getElementById('minimap-canvas'),
-    minimapCtx: null,
+const g = {
+    c: document.getElementById('animationCanvas'),
+    x: null,
+    mc: document.getElementById('minimap-canvas'),
+    mx: null,
+    minimapBuffer: null,
+    minimapBufferCtx: null,
     TILE_SIZE: 20,
     world: [],
     worldWidth: 200,
@@ -42,7 +44,7 @@ const game = {
     },
     hearts: [],
     titleScreenHearts: [],
-    backgroundParticles: [],
+    rainingHearts: [],
     clouds: [],
     creatures: [],
     shootingStars: [],
@@ -50,7 +52,7 @@ const game = {
     isNight: false,
     isDraggingSunMoon: false,
     currentAnimationId: null,
-    gameState: 'title', // 'title' or 'playing'
+    gameState: 'title',
     startButton: null,
     camera: {
         x: 0,
@@ -58,14 +60,17 @@ const game = {
     },
     tileColors: {
         sky: 'transparent',
-        grass: '#B6C8A9',
-        dirt: '#A9907E',
-        stone: '#808080',
-        wood: '#8B5A2B',
-        leaves: '#556B2F',
-        flowerStem: '#6B8E23', // Olive Drab
-        flowerPetal: '#FAFAF0', // Cream
-        sapling: '#a86a32'
+        grass: '#78C04A',
+        grassDark: '#5E9A3B',
+        dirt: '#8B5A2B',
+        dirtLight: '#A97B4F',
+        stone: '#6B6B6B',
+        stoneLight: '#8A8A8A',
+        wood: '#5A3B20',
+        leaves: '#3B7D2B',
+        flowerStem: '#4CAF50',
+        flowerPetal: '#FFEB3B',
+        sapling: '#6D4C41'
     },
     timePalettes: {
         dawn: { top: '#F2A9A9', bottom: '#F8F8F5' },
@@ -75,15 +80,18 @@ const game = {
     },
 
     init: function() {
-        this.ctx = this.canvas.getContext('2d');
-        this.minimapCtx = this.minimapCanvas.getContext('2d');
+        this.x = this.c.getContext('2d');
+        this.mx = this.mc.getContext('2d');
+        this.minimapBuffer = document.createElement('canvas');
+        this.minimapBufferCtx = this.minimapBuffer.getContext('2d');
+
         if (!this.loadGameState()) {
             this.initWorld();
         }
         this.resizeCanvas();
+        this.initRainingHearts();
+        this.renderMinimapBackground();
         this.mainLoop();
-
-        
 
         document.addEventListener('keydown', (e) => {
             if (!isNaN(e.key) && e.key > 0 && e.key <= this.inventory.items.length) {
@@ -103,13 +111,13 @@ const game = {
             if (e.key in this.keys) this.keys[e.key] = false;
         });
 
-        this.canvas.addEventListener('mousedown', (event) => {
-            const rect = this.canvas.getBoundingClientRect();
+        this.c.addEventListener('mousedown', (event) => {
+            const rect = this.c.getBoundingClientRect();
             const mouseX = event.clientX - rect.left;
             const mouseY = event.clientY - rect.top;
 
-            const sunMoonX = this.canvas.width / 2 + Math.cos(this.celestialBody.angle) * (this.canvas.width / 2 + 30);
-            const sunMoonY = this.canvas.height * 0.8 + Math.sin(this.celestialBody.angle) * (this.canvas.height * 0.7);
+            const sunMoonX = this.c.width / 2 + Math.cos(this.celestialBody.angle) * (this.c.width / 2 + 30);
+            const sunMoonY = this.c.height * 0.8 + Math.sin(this.celestialBody.angle) * (this.c.height * 0.7);
             const dist = Math.sqrt(Math.pow(mouseX - sunMoonX, 2) + Math.pow(mouseY - sunMoonY, 2));
 
             if (dist < 40) {
@@ -117,41 +125,41 @@ const game = {
             }
         });
 
-        this.canvas.addEventListener('mouseup', () => {
+        this.c.addEventListener('mouseup', () => {
             this.isDraggingSunMoon = false;
         });
 
-        this.canvas.addEventListener('mouseleave', () => {
+        this.c.addEventListener('mouseleave', () => {
             this.isDraggingSunMoon = false;
         });
 
-        this.canvas.addEventListener('mousemove', (event) => {
+        this.c.addEventListener('mousemove', (event) => {
             if (this.isDraggingSunMoon) {
-                const rect = this.canvas.getBoundingClientRect();
+                const rect = this.c.getBoundingClientRect();
                 const mouseX = event.clientX - rect.left;
                 const mouseY = event.clientY - rect.top;
-                const dx = mouseX - this.canvas.width / 2;
-                const dy = mouseY - this.canvas.height * 0.8;
+                const dx = mouseX - this.c.width / 2;
+                const dy = mouseY - this.c.height * 0.8;
                 this.celestialBody.angle = Math.atan2(dy, dx);
                 return;
             }
         });
 
-        this.canvas.addEventListener('click', (event) => {
+        this.c.addEventListener('click', (event) => {
             if (this.gameState === 'title') {
-                const rect = this.canvas.getBoundingClientRect();
+                const rect = this.c.getBoundingClientRect();
                 const clickX = event.clientX - rect.left;
                 const clickY = event.clientY - rect.top;
 
                 if (this.startButton && clickX >= this.startButton.x && clickX <= this.startButton.x + this.startButton.width &&
                     clickY >= this.startButton.y && clickY <= this.startButton.y + this.startButton.height) {
-                    this.gameState = 'playing';
+                    this.startGame();
                 }
-                return; // Prevent game world interaction on title screen
+                return;
             }
 
             if (this.isDraggingSunMoon) return;
-            const rect = this.canvas.getBoundingClientRect();
+            const rect = this.c.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const clickY = event.clientY - rect.top;
 
@@ -168,19 +176,24 @@ const game = {
 
             const selectedItem = this.inventory.items[this.inventory.selectedSlot];
             const clickedTile = this.world[tileY][tileX];
+            let worldModified = false;
 
             if (selectedItem.type === 'axe') {
                 if (clickedTile === 4 || clickedTile === 5) {
                     this.destroyTree(tileX, tileY);
                     this.inventory.items.find(i => i.type === 'wood').amount++;
+                    worldModified = true;
                 }
-            } else if (selectedItem.type === 'pickaxe') {
+            }
+            else if (selectedItem.type === 'pickaxe') {
                 if (clickedTile === 1 || clickedTile === 2) {
                     this.world[tileY][tileX] = 0;
                     this.inventory.items.find(i => i.type === 'dirt').amount++;
+                    worldModified = true;
                 } else if (clickedTile === 3) {
                     this.world[tileY][tileX] = 0;
                     this.inventory.items.find(i => i.type === 'stone').amount++;
+                    worldModified = true;
                 }
             }
 
@@ -189,26 +202,35 @@ const game = {
                 if (clickedTile === 7 && this.world[tileY + 1]?.[tileX] === 6) this.world[tileY + 1][tileX] = 0;
                 this.world[tileY][tileX] = 0;
                 this.inventory.items.find(i => i.type === 'lily').amount++;
+                worldModified = true;
             }
 
             if (clickedTile === 0) {
                 if (selectedItem.type === 'stone') {
                     this.world[tileY][tileX] = 3;
+                    worldModified = true;
                 } else if (selectedItem.type === 'wood') {
                     this.world[tileY][tileX] = 4;
+                    worldModified = true;
                 } else if (selectedItem.type === 'dirt') {
                     this.world[tileY][tileX] = 2;
+                    worldModified = true;
                 } else if (selectedItem.type === 'lily') {
                     if (this.world[tileY + 1]?.[tileX] === 1) {
                         this.world[tileY][tileX] = 6;
                         this.world[tileY - 1][tileX] = 7;
+                        worldModified = true;
                     }
                 } else if (selectedItem.type === 'sapling') {
                     if (this.world[tileY + 1]?.[tileX] === 1) {
                         this.world[tileY][tileX] = 8;
                         setTimeout(() => this.growTree(tileX, tileY), 30000);
+                        worldModified = true;
                     }
                 }
+            }
+            if (worldModified) {
+                this.renderMinimapBackground();
             }
         });
 
@@ -226,6 +248,7 @@ const game = {
             if (confirm("Are you sure you want to start a new world? Your current saved world will be lost.")) {
                 localStorage.removeItem('SereludeSaveData');
                 this.initWorld();
+                this.renderMinimapBackground();
             }
         });
 
@@ -233,9 +256,9 @@ const game = {
     },
 
     resizeCanvas: function() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
-        this.initBackgroundParticles();
+        this.c.width = window.innerWidth;
+        this.c.height = window.innerHeight;
+        this.initRainingHearts();
         this.initClouds();
     },
 
@@ -350,7 +373,8 @@ const game = {
                         }
                     }
                     x += clusterSize + Math.floor(Math.random() * 5) + 3;
-                }            }
+                }
+            }
             x++;
         }
     },
@@ -376,7 +400,7 @@ const game = {
             this.creatures.push({
                 type: 'bird',
                 x: Math.random() * this.worldWidth * this.TILE_SIZE,
-                y: Math.random() * this.canvas.height * 0.4,
+                y: Math.random() * this.c.height * 0.4,
                 width: this.TILE_SIZE * 0.6,
                 height: this.TILE_SIZE * 0.6,
                 vx: (Math.random() - 0.5) * 2,
@@ -392,90 +416,113 @@ const game = {
     },
 
     drawGrassTile: function(x, y) {
-        this.ctx.fillStyle = this.tileColors.dirt;
-        this.ctx.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
-        this.ctx.fillStyle = this.tileColors.grass;
-        this.ctx.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE / 2);
-        this.ctx.fillStyle = '#8a9e7c';
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.2, y, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.5);
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.7, y, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.5);
+        this.x.fillStyle = this.tileColors.dirt;
+        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
+        this.x.fillStyle = this.tileColors.grass;
+        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE / 2);
+        // Add some pixel details for texture
+        this.x.fillStyle = this.tileColors.grassDark;
+        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + this.TILE_SIZE * 0.7, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + this.TILE_SIZE * 0.4, y, this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.2);
     },
 
     drawDirtTile: function(x, y, size = this.TILE_SIZE) {
-        this.ctx.fillStyle = this.tileColors.dirt;
-        this.ctx.fillRect(x, y, size, size);
-        this.ctx.fillStyle = '#8c7365';
-        this.ctx.fillRect(x + size * 0.3, y + size * 0.2, size * 0.2, size * 0.2);
+        this.x.fillStyle = this.tileColors.dirt;
+        this.x.fillRect(x, y, size, size);
+        // Add some pixel details for texture
+        this.x.fillStyle = this.tileColors.dirtLight;
+        this.x.fillRect(x + size * 0.2, y + size * 0.3, size * 0.2, size * 0.2);
+        this.x.fillRect(x + size * 0.6, y + size * 0.1, size * 0.2, size * 0.2);
+        this.x.fillRect(x + size * 0.1, y + size * 0.7, size * 0.3, size * 0.2);
     },
 
     drawStoneTile: function(x, y, size = this.TILE_SIZE) {
-        this.ctx.fillStyle = this.tileColors.stone;
-        this.ctx.fillRect(x, y, size, size);
-        this.ctx.fillStyle = '#6a6a6a';
-        this.ctx.fillRect(x + size * 0.2, y + size * 0.5, size * 0.25, size * 0.25);
-        this.ctx.fillStyle = '#9a9a9a';
-        this.ctx.fillRect(x + size * 0.6, y + size * 0.2, size * 0.2, size * 0.2);
+        this.x.fillStyle = this.tileColors.stone;
+        this.x.fillRect(x, y, size, size);
+        // Add some pixel details for texture
+        this.x.fillStyle = this.tileColors.stoneLight;
+        this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.6, y + size * 0.4, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.3, y + size * 0.7, size * 0.2, size * 0.2);
     },
 
     drawWoodTile: function(x, y, size = this.TILE_SIZE) {
-        this.ctx.fillStyle = this.tileColors.wood;
-        this.ctx.fillRect(x, y, size, size);
-        this.ctx.fillStyle = '#a86a32';
-        this.ctx.fillRect(x + size * 0.2, y, size * 0.2, size);
+        this.x.fillStyle = this.tileColors.wood;
+        this.x.fillRect(x, y, size, size);
+        this.x.fillStyle = '#a86a32';
+        this.x.fillRect(x + size * 0.2, y, size * 0.2, size);
     },
 
     drawLeavesTile: function(x, y) {
-        this.ctx.fillStyle = this.tileColors.leaves;
-        this.ctx.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
-        this.ctx.fillStyle = '#6b8e23';
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillStyle = this.tileColors.leaves;
+        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
+        this.x.fillStyle = '#6b8e23';
+        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillRect(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
     },
 
     drawFlowerStemTile: function(x, y) {
-        this.ctx.fillStyle = this.tileColors.flowerStem;
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.4, y, this.TILE_SIZE * 0.2, this.TILE_SIZE);
+        this.x.fillStyle = this.tileColors.flowerStem;
+        this.x.fillRect(x + this.TILE_SIZE * 0.4, y, this.TILE_SIZE * 0.2, this.TILE_SIZE);
     },
 
     drawFlowerPetalTile: function(x, y) {
-        this.ctx.fillStyle = this.tileColors.flowerPetal;
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
-        this.ctx.fillStyle = '#e0e0d1';
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.2);
+        this.x.fillStyle = this.tileColors.flowerPetal;
+        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillStyle = '#e0e0d1';
+        this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.2);
     },
 
     drawBird: function(bird) {
-        this.ctx.save();
+        this.x.save();
         const birdCenterX = bird.x + bird.width / 2;
 
         if (bird.direction === 'left') {
-            this.ctx.translate(birdCenterX, 0);
-            this.ctx.scale(-1, 1);
-            this.ctx.translate(-birdCenterX, 0);
+            this.x.translate(birdCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-birdCenterX, 0);
         }
         
         const pSize = bird.width / 4;
-        this.ctx.fillStyle = '#4a4a4a';
+        this.x.fillStyle = '#4a4a4a'; // Body color
 
-        this.ctx.fillRect(bird.x + pSize, bird.y + pSize, pSize * 2, pSize);
-        this.ctx.fillRect(bird.x + pSize * 3, bird.y, pSize, pSize);
-        this.ctx.fillRect(bird.x, bird.y, pSize * 2, pSize);
+        // Body
+        this.x.fillRect(bird.x + pSize, bird.y + pSize, pSize * 2, pSize);
+        this.x.fillRect(bird.x, bird.y + pSize * 2, pSize * 3, pSize); // Lower body
 
-        this.ctx.restore();
+        // Head
+        this.x.fillRect(bird.x + pSize * 3, bird.y, pSize, pSize);
+
+        // Wing
+        this.x.fillStyle = '#6a6a6a';
+        this.x.fillRect(bird.x, bird.y, pSize * 2, pSize);
+
+        // Beak
+        this.x.fillStyle = '#FFD700';
+        this.x.fillRect(bird.x + pSize * 4, bird.y + pSize, pSize, pSize / 2);
+
+        // Eye
+        this.x.fillStyle = 'white';
+        this.x.fillRect(bird.x + pSize * 3.5, bird.y + pSize * 0.5, pSize * 0.5, pSize * 0.5);
+        this.x.fillStyle = 'black';
+        this.x.fillRect(bird.x + pSize * 3.7, bird.y + pSize * 0.7, pSize * 0.2, pSize * 0.2);
+
+        this.x.restore();
     },
 
     drawSaplingTile: function(x, y) {
-        this.ctx.fillStyle = this.tileColors.sapling;
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.5);
-        this.ctx.fillStyle = this.tileColors.leaves;
-        this.ctx.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.3, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillStyle = this.tileColors.sapling;
+        this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.5);
+        this.x.fillStyle = this.tileColors.leaves;
+        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.3, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
     },
 
     drawWorld: function() {
         const startCol = Math.floor(this.camera.x / this.TILE_SIZE);
-        const endCol = startCol + (this.canvas.width / this.TILE_SIZE) + 2;
+        const endCol = startCol + (this.c.width / this.TILE_SIZE) + 2;
         const startRow = Math.floor(this.camera.y / this.TILE_SIZE);
-        const endRow = startRow + (this.canvas.height / this.TILE_SIZE) + 2;
+        const endRow = startRow + (this.c.height / this.TILE_SIZE) + 2;
 
         for (let y = startRow; y < endRow; y++) {
             for (let x = startCol; x < endCol; x++) {
@@ -499,15 +546,14 @@ const game = {
         }
     },
 
-    initBackgroundParticles: function() {
-        this.backgroundParticles = [];
+    initRainingHearts: function() {
+        this.rainingHearts = [];
         for (let i = 0; i < 50; i++) {
-            this.backgroundParticles.push({
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height,
-                radius: Math.random() * 2 + 1,
-                color: 'rgba(250, 250, 240, 0.5)',
-                vy: Math.random() * -0.5 - 0.2
+            this.rainingHearts.push({
+                x: Math.random() * this.c.width,
+                y: Math.random() * this.c.height - this.c.height, // Start above canvas
+                size: Math.random() * 5 + 5,
+                vy: Math.random() * 1 + 0.5
             });
         }
     },
@@ -517,8 +563,8 @@ const game = {
         const cloudPixelSize = 15;
         for (let i = 0; i < 5; i++) {
             const cloud = {
-                x: Math.random() * this.canvas.width,
-                y: Math.random() * this.canvas.height * 0.3 + 20,
+                x: Math.random() * this.c.width,
+                y: Math.random() * this.c.height * 0.3 + 20,
                 speed: Math.random() * 0.2 + 0.1,
                 blocks: [],
                 width: 0
@@ -527,10 +573,11 @@ const game = {
             const cloudLength = Math.floor(Math.random() * 4) + 3;
             let currentX = 0;
             for (let j = 0; j < cloudLength; j++) {
-                const blockHeight = (Math.random() * 2 + 1) * cloudPixelSize;
-                const blockY = (Math.random() - 0.5) * cloudPixelSize;
-                cloud.blocks.push({ rx: currentX, ry: blockY, width: cloudPixelSize, height: blockHeight });
-                currentX += cloudPixelSize;
+                const blockWidth = (Math.random() * 1.5 + 0.5) * cloudPixelSize;
+                const blockHeight = (Math.random() * 1.5 + 0.5) * cloudPixelSize;
+                const blockYOffset = (Math.random() - 0.5) * cloudPixelSize;
+                cloud.blocks.push({ rx: currentX, ry: blockYOffset, width: blockWidth, height: blockHeight });
+                currentX += blockWidth * 0.7; // Overlap blocks slightly
             }
             cloud.width = currentX;
 
@@ -574,38 +621,38 @@ const game = {
             bottomColor = this.lerpColor(this.timePalettes.dusk.bottom, this.timePalettes.night.bottom, 1 - transitionFactor);
         }
 
-        const skyGradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height * 0.8);
+        const skyGradient = this.x.createLinearGradient(0, 0, 0, this.c.height * 0.8);
         skyGradient.addColorStop(0, topColor);
         skyGradient.addColorStop(1, bottomColor);
-        this.ctx.fillStyle = skyGradient;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.x.fillStyle = skyGradient;
+        this.x.fillRect(0, 0, this.c.width, this.c.height);
 
-        const sunMoonX = this.canvas.width / 2 + Math.cos(angle) * (this.canvas.width / 2 + 30);
-        const sunMoonY = this.canvas.height * 0.8 + Math.sin(angle) * (this.canvas.height * 0.7);
+        const sunMoonX = this.c.width / 2 + Math.cos(this.celestialBody.angle) * (this.c.width / 2 + 30);
+        const sunMoonY = this.c.height * 0.8 + Math.sin(this.celestialBody.angle) * (this.c.height * 0.7);
         const sunMoonRadius = 30;
         
         if (this.isNight) {
-            this.ctx.fillStyle = '#FAFAF0';
-            this.ctx.shadowBlur = 20;
-            this.ctx.shadowColor = '#FAFAF0';
+            this.x.fillStyle = '#FAFAF0';
+            this.x.shadowBlur = 20;
+            this.x.shadowColor = '#FAFAF0';
         } else {
-            this.ctx.fillStyle = '#F2A9A9';
-            this.ctx.shadowBlur = 30;
-            this.ctx.shadowColor = '#F2A9A9';
+            this.x.fillStyle = '#F2A9A9';
+            this.x.shadowBlur = 30;
+            this.x.shadowColor = 'rgba(242, 169, 169, 0.8)';
         }
-        this.ctx.beginPath();
-        this.ctx.arc(sunMoonX, sunMoonY, sunMoonRadius, 0, Math.PI * 2);
-        this.ctx.fill();
-        this.ctx.shadowBlur = 0;
+        this.x.beginPath();
+        this.x.arc(sunMoonX, sunMoonY, sunMoonRadius, 0, Math.PI * 2);
+        this.x.fill();
+        this.x.shadowBlur = 0;
 
         this.clouds.forEach(cloud => {
-            this.ctx.fillStyle = 'rgba(250, 250, 240, 0.7)';
+            this.x.fillStyle = 'rgba(250, 250, 240, 0.7)';
             cloud.blocks.forEach(block => {
-                this.ctx.fillRect(cloud.x + block.rx, cloud.y + block.ry, block.width, block.height);
+                this.x.fillRect(cloud.x + block.rx, cloud.y + block.ry, block.width, block.height);
             });
 
             cloud.x += cloud.speed;
-            if (cloud.x > this.canvas.width) {
+            if (cloud.x > this.c.width) {
                 cloud.x = -cloud.width;
             }
         });
@@ -613,8 +660,8 @@ const game = {
         if (this.isNight) {
             if (Math.random() < 0.01) {
                 this.shootingStars.push({
-                    x: Math.random() * this.canvas.width,
-                    y: Math.random() * this.canvas.height * 0.5,
+                    x: Math.random() * this.c.width,
+                    y: Math.random() * this.c.height * 0.5,
                     len: Math.random() * 80 + 20,
                     speed: Math.random() * 5 + 5,
                     life: 100
@@ -623,12 +670,12 @@ const game = {
         }
 
         this.shootingStars.forEach((star, index) => {
-            this.ctx.strokeStyle = 'rgba(250, 250, 240, 0.8)';
-            this.ctx.lineWidth = 2;
-            this.ctx.beginPath();
-            this.ctx.moveTo(star.x, star.y);
-            this.ctx.lineTo(star.x - star.len, star.y + star.len);
-            this.ctx.stroke();
+            this.x.strokeStyle = 'rgba(250, 250, 240, 0.8)';
+            this.x.lineWidth = 2;
+            this.x.beginPath();
+            this.x.moveTo(star.x, star.y);
+            this.x.lineTo(star.x - star.len, star.y + star.len);
+            this.x.stroke();
             star.x -= star.speed;
             star.y += star.speed;
             star.life--;
@@ -645,16 +692,13 @@ const game = {
         }
     },
 
-    drawBackground: function() {
-        this.backgroundParticles.forEach(p => {
-            this.ctx.beginPath();
-            this.ctx.fillStyle = p.color;
-            this.ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            this.ctx.fill();
-            p.y += p.vy;
-            if (p.y < 0) {
-                p.y = this.canvas.height;
-                p.x = Math.random() * this.canvas.width;
+    drawRainingHearts: function() {
+        this.rainingHearts.forEach(heart => {
+            this.drawHeart(heart.x, heart.y, heart.size);
+            heart.y += heart.vy;
+            if (heart.y > this.c.height) {
+                heart.y = -heart.size; // Reset above canvas
+                heart.x = Math.random() * this.c.width;
             }
         });
     },
@@ -667,13 +711,13 @@ const game = {
     },
 
     drawPlayer: function() {
-        this.ctx.save();
+        this.x.save();
         const playerCenterX = this.player.x - this.camera.x + this.player.width / 2;
         
         if (this.player.direction === 'left') {
-            this.ctx.translate(playerCenterX, 0);
-            this.ctx.scale(-1, 1);
-            this.ctx.translate(-playerCenterX, 0);
+            this.x.translate(playerCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-playerCenterX, 0);
         }
 
         const pSize = this.TILE_SIZE / 5;
@@ -684,62 +728,73 @@ const game = {
         const pants = '#6a6a6a';
         const shoes = '#4a4a4a';
 
-        this.ctx.fillStyle = skin;
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 3, pSize * 4);
-        this.ctx.fillStyle = hair;
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 4, pSize * 2);
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
+        // Head
+        this.x.fillStyle = skin;
+        this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 3, pSize * 4);
+        this.x.fillStyle = hair;
+        this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 4, pSize * 2);
+        this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
+        this.x.fillStyle = '#2E2E2E'; // Eyes
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
 
-        this.ctx.fillStyle = '#2E2E2E';
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
+        // Body
+        this.x.fillStyle = shirt;
+        this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 4, pSize * 3, pSize * 3);
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 4, pSize, pSize * 2); // Arm
+        this.x.fillStyle = skin;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 6, pSize, pSize); // Hand
 
-        this.ctx.fillStyle = shirt;
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 4, pSize * 3, pSize * 3);
-
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 4, pSize, pSize * 2);
-        this.ctx.fillStyle = skin;
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 6, pSize, pSize);
-
-        this.ctx.fillStyle = pants;
+        // Legs
+        this.x.fillStyle = pants;
         if (this.player.isWalking) {
             if (this.player.walkFrame === 0) {
-                this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
-                this.ctx.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize);
+                this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
+                this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize); // Leg 2 shorter
             } else {
-                this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize);
-                this.ctx.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
+                this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize); // Leg 1 shorter
+                this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
             }
         } else {
-            this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
-            this.ctx.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
+            this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
+            this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
         }
 
-        this.ctx.fillStyle = shoes;
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
-        this.ctx.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
+        // Shoes
+        this.x.fillStyle = shoes;
+        this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
 
-        this.ctx.restore();
+        this.x.restore();
     },
 
     drawHeart: function(cx, cy, size) {
-        this.ctx.fillStyle = '#F2A9A9';
+        this.x.fillStyle = '#F2A9A9'; // Main heart color
         const s = size / 5;
 
-        this.ctx.fillRect(cx - s * 1.5, cy - s * 2, s, s);
-        this.ctx.fillRect(cx + s * 0.5, cy - s * 2, s, s);
-        this.ctx.fillRect(cx - s * 2.5, cy - s, s * 5, s * 3);
-        this.ctx.fillRect(cx - s * 1.5, cy + s * 2, s * 3, s);
-        this.ctx.fillRect(cx - s * 0.5, cy + s * 3, s, s);
+        // Top left lobe
+        this.x.fillRect(cx - s * 2, cy - s * 1.5, s * 2, s * 2);
+        // Top right lobe
+        this.x.fillRect(cx, cy - s * 1.5, s * 2, s * 2);
+        // Bottom point
+        this.x.fillRect(cx - s * 1.5, cy + s * 0.5, s * 3, s * 3);
+        this.x.fillRect(cx - s, cy + s * 1.5, s * 2, s * 2);
+        this.x.fillRect(cx - s * 0.5, cy + s * 2.5, s, s);
+
+        // Outline/Shading (optional, for more detail)
+        this.x.fillStyle = '#D46A6A'; // Darker shade for outline
+        this.x.fillRect(cx - s * 2.5, cy - s * 1, s * 0.5, s * 2.5);
+        this.x.fillRect(cx + s * 2, cy - s * 1, s * 0.5, s * 2.5);
+        this.x.fillRect(cx - s * 1.5, cy + s * 3.5, s * 3, s * 0.5);
     },
 
     drawBunny: function(bunny) {
-        this.ctx.save();
+        this.x.save();
         const bunnyCenterX = bunny.x - this.camera.x + bunny.width / 2;
 
         if (bunny.direction === 'left') {
-            this.ctx.translate(bunnyCenterX, 0);
-            this.ctx.scale(-1, 1);
-            this.ctx.translate(-bunnyCenterX, 0);
+            this.x.translate(bunnyCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-bunnyCenterX, 0);
         }
 
         const pSize = this.TILE_SIZE / 5;
@@ -749,25 +804,30 @@ const game = {
         const eyeColor = '#2E2E2E';
         const tailColor = '#FAFAF0';
 
-        this.ctx.fillStyle = bodyColor;
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize, bunny.y - this.camera.y + pSize * 4, pSize * 3, pSize * 2);
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize * 2, bunny.y - this.camera.y + pSize * 3, pSize * 2, pSize);
+        // Body
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(bunny.x - this.camera.x + pSize, bunny.y - this.camera.y + pSize * 4, pSize * 3, pSize * 2);
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 2, bunny.y - this.camera.y + pSize * 3, pSize * 2, pSize);
 
-        this.ctx.fillStyle = tailColor;
-        this.ctx.fillRect(bunny.x - this.camera.x, bunny.y - this.camera.y + pSize * 4, pSize, pSize);
+        // Tail
+        this.x.fillStyle = tailColor;
+        this.x.fillRect(bunny.x - this.camera.x, bunny.y - this.camera.y + pSize * 4, pSize, pSize);
 
-        this.ctx.fillStyle = bodyColor;
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y + pSize * 2, pSize * 2, pSize * 2);
+        // Head
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y + pSize * 2, pSize * 2, pSize * 2);
 
-        this.ctx.fillStyle = earColor;
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y, pSize, pSize * 3);
-        this.ctx.fillStyle = bodyColor;
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize, pSize, pSize * 2);
+        // Ears
+        this.x.fillStyle = earColor;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y, pSize, pSize * 3);
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize, pSize, pSize * 2);
 
-        this.ctx.fillStyle = eyeColor;
-        this.ctx.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize * 2, pSize, pSize);
+        // Eye
+        this.x.fillStyle = eyeColor;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize * 2, pSize, pSize);
 
-        this.ctx.restore();
+        this.x.restore();
     },
 
     updateCreatures: function() {
@@ -804,7 +864,7 @@ const game = {
                             creature.vy = -6;
                             creature.vx = this.player.x < creature.x ? 3 : -3;
                         }
-                        creature.dropCooldown = 300;
+                        creature.dropCooldown = 60;
                     }
                 }
 
@@ -940,38 +1000,38 @@ const game = {
 
     drawItemIcon: function(item, x, y, size) {
         const p = size / 16;
-        this.ctx.save();
-        this.ctx.translate(x, y);
+        this.x.save();
+        this.x.translate(x, y);
 
         switch (item.type) {
             case 'axe':
-                this.ctx.fillStyle = '#a86a32';
-                this.ctx.fillRect(p * 7, p * 5, p * 2, p * 9);
-                this.ctx.fillRect(p * 6, p * 6, p, p * 7);
-                this.ctx.fillStyle = '#8B5A2B';
-                this.ctx.fillRect(p * 8, p * 5, p, p * 8);
-                this.ctx.fillStyle = '#6a6a6a';
-                this.ctx.fillRect(p * 5, p * 2, p * 6, p * 5);
-                this.ctx.fillRect(p * 6, p * 1, p * 4, p * 6);
-                this.ctx.fillStyle = '#808080';
-                this.ctx.fillRect(p * 6, p * 2, p * 4, p * 4);
-                this.ctx.fillStyle = '#9a9a9a';
-                this.ctx.fillRect(p * 5, p * 3, p, p * 2);
-                this.ctx.fillRect(p * 10, p * 3, p, p * 2);
+                this.x.fillStyle = '#a86a32';
+                this.x.fillRect(p * 7, p * 5, p * 2, p * 9);
+                this.x.fillRect(p * 6, p * 6, p, p * 7);
+                this.x.fillStyle = '#8B5A2B';
+                this.x.fillRect(p * 8, p * 5, p, p * 8);
+                this.x.fillStyle = '#6a6a6a';
+                this.x.fillRect(p * 5, p * 2, p * 6, p * 5);
+                this.x.fillRect(p * 6, p * 1, p * 4, p * 6);
+                this.x.fillStyle = '#808080';
+                this.x.fillRect(p * 6, p * 2, p * 4, p * 4);
+                this.x.fillStyle = '#9a9a9a';
+                this.x.fillRect(p * 5, p * 3, p, p * 2);
+                this.x.fillRect(p * 10, p * 3, p, p * 2);
                 break;
             case 'pickaxe':
-                this.ctx.fillStyle = '#a86a32';
-                this.ctx.fillRect(p * 7, p * 4, p * 2, p * 10);
-                this.ctx.fillStyle = '#8B5A2B';
-                this.ctx.fillRect(p * 8, p * 4, p, p * 9);
-                this.ctx.fillStyle = '#6a6a6a';
-                this.ctx.fillRect(p * 4, p * 3, p * 8, p * 3);
-                this.ctx.fillRect(p * 3, p * 4, p * 10, p);
-                this.ctx.fillStyle = '#808080';
-                this.ctx.fillRect(p * 5, p * 4, p * 6, p);
-                this.ctx.fillStyle = '#9a9a9a';
-                this.ctx.fillRect(p * 3, p * 3, p * 2, p);
-                this.ctx.fillRect(p * 11, p * 3, p * 2, p);
+                this.x.fillStyle = '#a86a32';
+                this.x.fillRect(p * 7, p * 4, p * 2, p * 10);
+                this.x.fillStyle = '#8B5A2B';
+                this.x.fillRect(p * 8, p * 4, p, p * 9);
+                this.x.fillStyle = '#6a6a6a';
+                this.x.fillRect(p * 4, p * 3, p * 8, p * 3);
+                this.x.fillRect(p * 3, p * 4, p * 10, p);
+                this.x.fillStyle = '#808080';
+                this.x.fillRect(p * 5, p * 4, p * 6, p);
+                this.x.fillStyle = '#9a9a9a';
+                this.x.fillRect(p * 3, p * 3, p * 2, p);
+                this.x.fillRect(p * 11, p * 3, p * 2, p);
                 break;
             case 'stone':
                 this.drawStoneTile(0, 0, size);
@@ -983,73 +1043,68 @@ const game = {
                 this.drawDirtTile(0, 0, size);
                 break;
             case 'lily':
-                this.ctx.fillStyle = this.tileColors.flowerStem;
-                this.ctx.fillRect(p * 7, p * 5, p * 2, p * 8);
-                this.ctx.fillStyle = this.tileColors.flowerPetal;
-                this.ctx.fillRect(p * 6, p * 4, p * 4, p * 2);
-                this.ctx.fillRect(p * 5, p * 5, p * 2, p * 2);
-                this.ctx.fillRect(p * 9, p * 5, p * 2, p * 2);
-                this.ctx.fillStyle = '#e0e0d1';
-                this.ctx.fillRect(p * 7, p * 5, p * 2, p);
+                this.x.fillStyle = this.tileColors.flowerStem;
+                this.x.fillRect(p * 7, p * 5, p * 2, p * 8);
+                this.x.fillStyle = this.tileColors.flowerPetal;
+                this.x.fillRect(p * 6, p * 4, p * 4, p * 2);
+                this.x.fillRect(p * 5, p * 5, p * 2, p * 2);
+                this.x.fillRect(p * 9, p * 5, p * 2, p * 2);
+                this.x.fillStyle = '#e0e0d1';
+                this.x.fillRect(p * 7, p * 5, p * 2, p);
                 break;
             case 'sapling':
-                this.ctx.fillStyle = this.tileColors.sapling;
-                this.ctx.fillRect(p * 7, p * 8, p * 2, p * 6);
-                this.ctx.fillStyle = this.tileColors.leaves;
-                this.ctx.fillRect(p * 6, p * 5, p * 4, p * 4);
+                this.x.fillStyle = this.tileColors.sapling;
+                this.x.fillRect(p * 7, p * 8, p * 2, p * 6);
+                this.x.fillStyle = this.tileColors.leaves;
+                this.x.fillRect(p * 6, p * 5, p * 4, p * 4);
                 break;
         }
-        this.ctx.restore();
+        this.x.restore();
     },
 
     drawInventory: function() {
         const slotSize = 50;
         const padding = 10;
-        const startX = (this.canvas.width - (this.inventory.items.length * (slotSize + padding))) / 2;
+        const startX = (this.c.width - (this.inventory.items.length * (slotSize + padding))) / 2;
         const startY = 20;
 
         this.inventory.items.forEach((item, index) => {
             const slotX = startX + index * (slotSize + padding);
             
             if (index === this.inventory.selectedSlot) {
-                this.ctx.shadowColor = '#F2A9A9';
-                this.ctx.shadowBlur = 15;
+                this.x.shadowColor = 'rgba(242, 169, 169, 0.8)';
+                this.x.shadowBlur = 15;
             }
 
-            this.ctx.fillStyle = 'rgba(46, 46, 46, 0.5)';
-            this.ctx.fillRect(slotX, startY, slotSize, slotSize);
-            this.ctx.shadowBlur = 0;
+            this.x.fillStyle = 'rgba(46, 46, 46, 0.6)';
+            this.x.fillRect(slotX, startY, slotSize, slotSize);
+            this.x.shadowBlur = 0;
 
             if (index === this.inventory.selectedSlot) {
-                this.ctx.strokeStyle = '#F2A9A9';
-                this.ctx.lineWidth = 3;
-                this.ctx.strokeRect(slotX, startY, slotSize, slotSize);
+                this.x.strokeStyle = '#F2A9A9';
+                this.x.lineWidth = 3;
+                this.x.strokeRect(slotX, startY, slotSize, slotSize);
             }
 
             this.drawItemIcon(item, slotX, startY, slotSize);
 
             if (item.amount !== undefined) {
-                this.ctx.font = '10px "Segoe UI"';
-                this.ctx.textAlign = 'right';
-                this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                this.ctx.fillText(item.amount, slotX + slotSize - 6, startY + slotSize - 5);
-                this.ctx.fillStyle = 'white';
-                this.ctx.fillText(item.amount, slotX + slotSize - 7, startY + slotSize - 6);
-                this.ctx.textAlign = 'center';
+                this.x.font = '10px "Press Start 2P"';
+                this.x.textAlign = 'right';
+                this.x.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                this.x.fillText(item.amount, slotX + slotSize - 6, startY + slotSize - 5);
+                this.x.fillStyle = 'white';
+                this.x.fillText(item.amount, slotX + slotSize - 7, startY + slotSize - 6);
+                this.x.textAlign = 'center';
             }
         });
     },
 
-    drawMinimap: function() {
-        const minimapDisplayWidth = 150;
+    renderMinimapBackground: function() {
+        const minimapDisplayWidth = 200;
         const minimapDisplayHeight = Math.floor(this.worldHeight * (minimapDisplayWidth / this.worldWidth));
-
-        this.minimapCanvas.width = minimapDisplayWidth;
-        this.minimapCanvas.height = minimapDisplayHeight;
-
-        this.minimapCtx.clearRect(0, 0, this.worldWidth, this.worldHeight);
-        this.minimapCtx.save();
-        this.minimapCtx.scale(minimapDisplayWidth / this.worldWidth, minimapDisplayHeight / this.worldHeight);
+        this.minimapBuffer.width = this.worldWidth;
+        this.minimapBuffer.height = this.worldHeight;
 
         for (let y = 0; y < this.worldHeight; y++) {
             for (let x = 0; x < this.worldWidth; x++) {
@@ -1063,16 +1118,28 @@ const game = {
                     case 5: color = this.tileColors.leaves; break;
                 }
                 if (color !== 'transparent') {
-                    this.minimapCtx.fillStyle = color;
-                    this.minimapCtx.fillRect(x, y, 1, 1);
+                    this.minimapBufferCtx.fillStyle = color;
+                    this.minimapBufferCtx.fillRect(x, y, 1, 1);
                 }
             }
         }
-        const playerMinimapX = Math.floor(this.player.x / this.TILE_SIZE);
-        const playerMinimapY = Math.floor(this.player.y / this.TILE_SIZE);
-        this.minimapCtx.fillStyle = 'white';
-        this.minimapCtx.fillRect(playerMinimapX, playerMinimapY, 4, 4);
-        this.minimapCtx.restore();
+    },
+
+    drawMinimap: function() {
+        const minimapDisplayWidth = 200;
+        const minimapDisplayHeight = Math.floor(this.worldHeight * (minimapDisplayWidth / this.worldWidth));
+
+        this.mc.width = minimapDisplayWidth;
+        this.mc.height = minimapDisplayHeight;
+
+        this.mx.clearRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
+        this.mx.drawImage(this.minimapBuffer, 0, 0, minimapDisplayWidth, minimapDisplayHeight);
+
+        const playerMinimapX = (this.player.x / this.TILE_SIZE) * (minimapDisplayWidth / this.worldWidth);
+        const playerMinimapY = (this.player.y / this.TILE_SIZE) * (minimapDisplayHeight / this.worldHeight);
+
+        this.mx.fillStyle = 'white';
+        this.mx.fillRect(playerMinimapX - 3, playerMinimapY - 3, 6, 6);
     },
 
     destroyTree: function(x, y) {
@@ -1080,7 +1147,10 @@ const game = {
         const visited = new Set([`${x},${y}`]);
 
         const processQueue = () => {
-            if (queue.length === 0) return;
+            if (queue.length === 0) {
+                this.renderMinimapBackground();
+                return;
+            }
 
             const [cx, cy] = queue.shift();
             const tileType = this.world[cy]?.[cx];
@@ -1115,137 +1185,20 @@ const game = {
         for (let ly = -1; ly <= 1; ly++) {
             for (let lx = -1; lx <= 1; lx++) this.world[treeTopY + ly][x + lx] = 5;
         }
+        this.renderMinimapBackground();
     },
 
-    animateTitleScreen: function() {
-        this.camera.x += 0.2;
-        if (this.camera.x > this.worldWidth * this.TILE_SIZE - this.canvas.width) {
-            this.camera.x = 0;
-        }
-        this.camera.y = (this.worldHeight * 0.8 * this.TILE_SIZE) - this.canvas.height / 2;
-        this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight * this.TILE_SIZE - this.canvas.height));
-
-        this.drawSky();
-        this.drawWorld();
-        this.drawBackground();
-        this.updateCreatures();
-        this.creatures.forEach(creature => {
-            if (creature.type === 'bunny') this.drawBunny(creature);
-            else if (creature.type === 'bird') this.drawBird(creature);
-        });
-
-        // Draw Title
-        const pixelSize = 4;
-        const textWidth = 'SERELUDE'.length * 6 * pixelSize;
-        const heartWidth = 7 * pixelSize;
-        const gap = 2 * pixelSize;
-        const totalWidth = textWidth + gap + heartWidth;
-        const startX = (this.canvas.width - totalWidth) / 2;
-        this.drawPixelText(this.ctx, 'SERELUDE', startX, this.canvas.height / 2 - 150, pixelSize, 'white');
-        
-        const heartData = [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]];
-        const pulseFactor = (Math.sin(Date.now() / 400) + 1) / 2;
-        const heartSize = pixelSize * (1 + pulseFactor * 0.1);
-        const heartX = startX + textWidth + gap + (7 * pixelSize - 7 * heartSize) / 2;
-        const heartY = this.canvas.height / 2 - 150 + (7 * pixelSize - 7 * heartSize) / 2;
-        this.ctx.fillStyle = '#F2A9A9';
-        heartData.forEach(p => {
-            this.ctx.fillRect(heartX + p[0] * heartSize, heartY + p[1] * heartSize, heartSize, heartSize);
-        });
-
-        // Draw Poem
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = 'italic 16px Segoe UI';
-        this.ctx.textAlign = 'center';
-        const poem = [
-            'A quiet song between blossoms.',
-            'Each petal a note, each line of code a heartbeat.',
-            'What began as a prelude now blooms softly in light',
-            'a serenade that lingers, looping endlessly,',
-            'for love that grows in silence and glows in rhythm.'
-        ];
-        poem.forEach((line, index) => {
-            this.ctx.fillText(line, this.canvas.width / 2, this.canvas.height / 2 - 50 + index * 20);
-        });
-
-        // Draw Features
-        this.ctx.font = '14px Segoe UI';
-        this.ctx.fillText('Explore a dynamic world with a day/night cycle, mine and place blocks, meet friendly creatures, and save your creations.', this.canvas.width / 2, this.canvas.height / 2 + 80);
-
-        // Draw Start Button
-        
-this.startButton = {
-            x: this.canvas.width / 2 - 100,
-            y: this.canvas.height / 2 + 120,
-            width: 200,
-            height: 50
-        };
-        this.ctx.fillStyle = '#F2A9A9';
-        this.ctx.fillRect(this.startButton.x, this.startButton.y, this.startButton.width, this.startButton.height);
-        this.ctx.fillStyle = 'white';
-        this.ctx.font = '20px "Press Start 2P"';
-        this.ctx.fillText('Start Game', this.canvas.width / 2, this.canvas.height / 2 + 155);
-
-        this.mainLoop();
-    },
-
-    drawPixelText: function(ctx, text, startX, startY, pixelSize, color) {
-        const font = {
-            'S': [[1,0],[2,0],[3,0],[0,1],[1,2],[2,2],[3,2],[4,3],[1,4],[2,4],[3,4]],
-            'E': [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[1,2],[2,2],[0,3],[0,4],[1,4],[2,4],[3,4]],
-            'R': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[1,2],[0,3],[2,3],[0,4],[3,4]],
-            'L': [[0,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4]],
-            'U': [[0,0],[3,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[1,4],[2,4]],
-            'D': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[0,4],[1,4],[2,4]],
-            'heart': [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]]
-        };
-
-        ctx.fillStyle = color;
-        let currentX = startX;
-
-        for (const char of text.toUpperCase()) {
-            if (font[char]) {
-                font[char].forEach(p => {
-                    ctx.fillRect(currentX + p[0] * pixelSize, startY + p[1] * pixelSize, pixelSize, pixelSize);
-                });
-                currentX += 6 * pixelSize;
-            }
-        }
-        return currentX;
-    },
-
-    
-
-    startGame: function() {
-        if (!this.loadGameState()) {
-            this.initWorld();
-        }
-        this.resizeCanvas();
-    },
-
-    animate: function() {
-        if (this.gameState === 'title') {
-            this.animateTitleScreen();
-        } else if (this.gameState === 'playing') {
-            this.animatePlayingScreen();
-        }
-    },
-
-    mainLoop: function() {
-        this.currentAnimationId = requestAnimationFrame(() => this.animate());
-    },
-
-    animatePlayingScreen: function() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    drawGameWorld: function() {
+        this.x.clearRect(0, 0, this.c.width, this.c.height);
 
         this.updatePlayer();
         this.updateCreatures();
 
-        this.camera.x = this.player.x - this.canvas.width / 2;
-        this.camera.y = this.player.y - this.canvas.height / 2;
+        this.camera.x = this.player.x - this.c.width / 2;
+        this.camera.y = this.player.y - this.c.height / 2;
 
-        this.camera.x = Math.max(0, Math.min(this.camera.x, this.worldWidth * this.TILE_SIZE - this.canvas.width));
-        this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight * this.TILE_SIZE - this.canvas.height));
+        this.camera.x = Math.max(0, Math.min(this.camera.x, this.worldWidth * this.TILE_SIZE - this.c.width));
+        this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight * this.TILE_SIZE - this.c.height));
 
         this.drawSky();
         this.drawWorld();
@@ -1257,6 +1210,7 @@ this.startButton = {
 
         this.drawInventory();
         this.drawMinimap();
+        this.drawRainingHearts();
 
         this.hearts.forEach((heart, index) => {
             heart.y += heart.vy;
@@ -1267,9 +1221,111 @@ this.startButton = {
             }
             this.drawHeart(heart.x - this.camera.x, heart.y - this.camera.y, heart.size);
         });
+    },
 
-        this.mainLoop();
+    animateTitleScreen: function() {
+        this.drawGameWorld();
+
+        const pixelSize = 4;
+        const textWidth = 'SERELUDE'.length * 6 * pixelSize;
+        const heartWidth = 7 * pixelSize;
+        const gap = 2 * pixelSize;
+        const totalWidth = textWidth + gap + heartWidth;
+        const startX = (this.c.width - totalWidth) / 2;
+        this.drawPixelText(this.x, 'SERELUDE', startX, this.c.height / 2 - 150, pixelSize, 'white');
+        
+        const heartData = [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]];
+        const pulseFactor = (Math.sin(Date.now() / 400) + 1) / 2;
+        const heartSize = pixelSize * (1 + pulseFactor * 0.1);
+        const heartX = startX + textWidth + gap + (7 * pixelSize - 7 * heartSize) / 2;
+        const heartY = this.c.height / 2 - 150 + (7 * pixelSize - 7 * heartSize) / 2;
+        this.x.fillStyle = '#F2A9A9';
+        heartData.forEach(p => {
+            this.x.fillRect(heartX + p[0] * heartSize, heartY + p[1] * heartSize, heartSize, heartSize);
+        });
+
+        this.x.fillStyle = 'white';
+        this.x.font = 'italic 16px "Press Start 2P"';
+        this.x.textAlign = 'center';
+        const poem = [
+            'A quiet song between blossoms.',
+            'Each petal a note, each line of code a heartbeat.',
+            'What began as a prelude now blooms softly in light',
+            'a serenade that lingers, looping endlessly,',
+            'for love that grows in silence and glows in rhythm.'
+        ];
+        poem.forEach((line, index) => {
+            this.x.fillText(line, this.c.width / 2, this.c.height / 2 - 50 + index * 20);
+        });
+
+        this.x.font = '14px "Press Start 2P"';
+        this.x.fillText('Explore a dynamic world with a day/night cycle, mine and place blocks, meet friendly creatures, and save your creations.', this.c.width / 2, this.c.height / 2 + 80);
+
+        this.startButton = {
+            x: this.c.width / 2 - 100,
+            y: this.c.height / 2 + 120,
+            width: 200,
+            height: 50
+        };
+        this.x.fillStyle = '#F2A9A9';
+        this.x.fillRect(this.startButton.x, this.startButton.y, this.startButton.width, this.startButton.height);
+        this.x.fillStyle = 'white';
+        this.x.font = '20px "Press Start 2P"';
+        this.x.fillText('Start Game', this.c.width / 2, this.c.height / 2 + 155);
+    },
+
+    drawPixelText: function(x, text, startX, startY, pixelSize, color) {
+        const font = {
+            'S': [[1,0],[2,0],[3,0],[0,1],[1,2],[2,2],[3,2],[4,3],[1,4],[2,4],[3,4]],
+            'E': [[0,0],[1,0],[2,0],[3,0],[0,1],[0,2],[1,2],[2,2],[0,3],[0,4],[1,4],[2,4],[3,4]],
+            'R': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[1,2],[0,3],[2,3],[0,4],[3,4]],
+            'L': [[0,0],[0,1],[0,2],[0,3],[0,4],[1,4],[2,4]],
+            'U': [[0,0],[3,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[1,4],[2,4]],
+            'D': [[0,0],[1,0],[2,0],[0,1],[3,1],[0,2],[3,2],[0,3],[3,3],[0,4],[1,4],[2,4]],
+            'heart': [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]]
+        };
+
+        x.fillStyle = color;
+        let currentX = startX;
+
+        for (const char of text.toUpperCase()) {
+            if (font[char]) {
+                font[char].forEach(p => {
+                    x.fillRect(currentX + p[0] * pixelSize, startY + p[1] * pixelSize, pixelSize, pixelSize);
+                });
+                currentX += 6 * pixelSize;
+            }
+        }
+        return currentX;
+    },
+
+    startGame: function() {
+        this.gameState = 'playing';
+        if (!this.loadGameState()) {
+            this.initWorld();
+        }
+        this.resizeCanvas();
+        this.renderMinimapBackground();
+    },
+
+    animate: function() {
+        if (this.gameState === 'title') {
+            this.animateTitleScreen();
+        } else if (this.gameState === 'playing') {
+            this.animatePlayingScreen();
+        }
+    },
+
+    mainLoop: function() {
+        this.currentAnimationId = requestAnimationFrame(() => {
+            this.animate();
+            this.mainLoop();
+        });
+    },
+
+    animatePlayingScreen: function() {
+        this.drawGameWorld();
     }
 };
 
-game.init();
+g.init();
