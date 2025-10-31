@@ -7,8 +7,8 @@ const g = {
     minimapBufferCtx: null,
     TILE_SIZE: 20,
     world: [],
-    worldWidth: 200,
-    worldHeight: 60,
+    worldWidth: 800,
+    worldHeight: 200,
     player: {
         x: 0,
         y: 0,
@@ -32,6 +32,8 @@ const g = {
             { type: 'wood', name: 'Wood', amount: 0 },
             { type: 'dirt', name: 'Dirt', amount: 0 },
             { type: 'lily', name: 'Lily', amount: 0 },
+            { type: 'lilyOfTheValley', name: 'Lily of the Valley', amount: 0 },
+            { type: 'rose', name: 'Rose', amount: 0 },
             { type: 'sapling', name: 'Sapling', amount: 0 }
         ],
         selectedSlot: 0
@@ -70,7 +72,12 @@ const g = {
         leaves: '#3B7D2B',
         flowerStem: '#4CAF50',
         flowerPetal: '#FFEB3B',
-        sapling: '#6D4C41'
+        sapling: '#6D4C41',
+        water: 'rgba(66, 165, 245, 0.7)', // Semi-transparent blue
+        lilyOfTheValleyGreen: '#6B8E23',
+        lilyOfTheValleyWhite: '#F8F8F8',
+        roseStemGreen: '#388E3C',
+        roseRed: '#D32F2F'
     },
     timePalettes: {
         dawn: { top: '#F2A9A9', bottom: '#F8F8F5' },
@@ -166,7 +173,7 @@ const g = {
             const tileX = Math.floor((clickX + this.camera.x) / this.TILE_SIZE);
             const tileY = Math.floor((clickY + this.camera.y) / this.TILE_SIZE);
 
-            if (!this.world[tileY] || this.world[tileY][tileX] === undefined) return;
+            if (this.getTile(tileX, tileY) === undefined) return; // Check if tile exists
 
             const playerTileX = Math.floor((this.player.x + this.player.width / 2) / this.TILE_SIZE);
             const playerTileY = Math.floor((this.player.y + this.player.height / 2) / this.TILE_SIZE);
@@ -175,7 +182,7 @@ const g = {
             if (distance > 5) return;
 
             const selectedItem = this.inventory.items[this.inventory.selectedSlot];
-            const clickedTile = this.world[tileY][tileX];
+            const clickedTile = this.getTile(tileX, tileY);
             let worldModified = false;
 
             if (selectedItem.type === 'axe') {
@@ -187,43 +194,61 @@ const g = {
             }
             else if (selectedItem.type === 'pickaxe') {
                 if (clickedTile === 1 || clickedTile === 2) {
-                    this.world[tileY][tileX] = 0;
+                    this.setTile(tileX, tileY, 0);
                     this.inventory.items.find(i => i.type === 'dirt').amount++;
                     worldModified = true;
                 } else if (clickedTile === 3) {
-                    this.world[tileY][tileX] = 0;
+                    this.setTile(tileX, tileY, 0);
                     this.inventory.items.find(i => i.type === 'stone').amount++;
                     worldModified = true;
                 }
             }
 
-            if (clickedTile === 6 || clickedTile === 7) {
-                if (clickedTile === 6 && this.world[tileY - 1]?.[tileX] === 7) this.world[tileY - 1][tileX] = 0;
-                if (clickedTile === 7 && this.world[tileY + 1]?.[tileX] === 6) this.world[tileY + 1][tileX] = 0;
-                this.world[tileY][tileX] = 0;
-                this.inventory.items.find(i => i.type === 'lily').amount++;
+            if (clickedTile === 6 || clickedTile === 7 || clickedTile === 10 || clickedTile === 11 || clickedTile === 12 || clickedTile === 13) {
+                if (clickedTile === 6 && this.getTile(tileX, tileY - 1) === 7) this.setTile(tileX, tileY - 1, 0);
+                if (clickedTile === 7 && this.getTile(tileX, tileY + 1) === 6) this.setTile(tileX, tileY + 1, 0);
+                if (clickedTile === 10 && this.getTile(tileX, tileY - 1) === 11) this.setTile(tileX, tileY - 1, 0);
+                if (clickedTile === 11 && this.getTile(tileX, tileY + 1) === 10) this.setTile(tileX, tileY + 1, 0);
+                if (clickedTile === 12 && this.getTile(tileX, tileY - 1) === 13) this.setTile(tileX, tileY - 1, 0);
+                if (clickedTile === 13 && this.getTile(tileX, tileY + 1) === 12) this.setTile(tileX, tileY + 1, 0);
+                this.setTile(tileX, tileY, 0);
+                if (clickedTile === 6 || clickedTile === 7) this.inventory.items.find(i => i.type === 'lily').amount++;
+                else if (clickedTile === 10 || clickedTile === 11) this.inventory.items.find(i => i.type === 'lilyOfTheValley').amount++;
+                else if (clickedTile === 12 || clickedTile === 13) this.inventory.items.find(i => i.type === 'rose').amount++;
                 worldModified = true;
             }
 
             if (clickedTile === 0) {
                 if (selectedItem.type === 'stone') {
-                    this.world[tileY][tileX] = 3;
+                    this.setTile(tileX, tileY, 3);
                     worldModified = true;
                 } else if (selectedItem.type === 'wood') {
-                    this.world[tileY][tileX] = 4;
+                    this.setTile(tileX, tileY, 4);
                     worldModified = true;
                 } else if (selectedItem.type === 'dirt') {
-                    this.world[tileY][tileX] = 2;
+                    this.setTile(tileX, tileY, 2);
                     worldModified = true;
                 } else if (selectedItem.type === 'lily') {
-                    if (this.world[tileY + 1]?.[tileX] === 1) {
-                        this.world[tileY][tileX] = 6;
-                        this.world[tileY - 1][tileX] = 7;
+                    if (this.getTile(tileX, tileY + 1) === 1) {
+                        this.setTile(tileX, tileY, 6);
+                        this.setTile(tileX, tileY - 1, 7);
+                        worldModified = true;
+                    }
+                } else if (selectedItem.type === 'lilyOfTheValley') {
+                    if (this.getTile(tileX, tileY + 1) === 1) {
+                        this.setTile(tileX, tileY, 10);
+                        this.setTile(tileX, tileY - 1, 11);
+                        worldModified = true;
+                    }
+                } else if (selectedItem.type === 'rose') {
+                    if (this.getTile(tileX, tileY + 1) === 1) {
+                        this.setTile(tileX, tileY, 12);
+                        this.setTile(tileX, tileY - 1, 13);
                         worldModified = true;
                     }
                 } else if (selectedItem.type === 'sapling') {
-                    if (this.world[tileY + 1]?.[tileX] === 1) {
-                        this.world[tileY][tileX] = 8;
+                    if (this.getTile(tileX, tileY + 1) === 1) {
+                        this.setTile(tileX, tileY, 8);
                         setTimeout(() => this.growTree(tileX, tileY), 30000);
                         worldModified = true;
                     }
@@ -268,7 +293,7 @@ const g = {
             this.world.push(new Array(this.worldWidth).fill(0));
         }
 
-        const groundLevelY = Math.floor(this.worldHeight * 0.8);
+        const groundLevelY = Math.floor(this.worldHeight * 0.95);
 
         for (let y = 0; y < this.worldHeight; y++) {
             for (let x = 0; x < this.worldWidth; x++) {
@@ -285,20 +310,40 @@ const g = {
         this.player.x = this.worldWidth * this.TILE_SIZE / 2;
         this.player.y = groundLevelY * this.TILE_SIZE - this.player.height;
 
+        // Dig a pond and fill with water
+        const pondStartX = Math.floor(this.worldWidth * 0.3);
+        const pondEndX = Math.floor(this.worldWidth * 0.4);
+        const pondTopY = groundLevelY; // Top of the water level, at ground level
+        const pondBottomY = groundLevelY + 3; // Bottom of the pond, deeper into the ground
+
+        for (let y = pondTopY; y <= pondBottomY; y++) {
+            for (let x = pondStartX; x <= pondEndX; x++) {
+                if (y >= pondTopY && y < pondBottomY) {
+                    this.world[y][x] = 9; // Water
+                } else if (y >= pondBottomY) {
+                    this.world[y][x] = 2; // Dirt below water
+                }
+            }
+        }
+
         this.generateTrees(groundLevelY);
         this.generateFlowers(groundLevelY);
         this.initCreatures(groundLevelY);
     },
 
+
+
+
     saveGameState: function() {
         const gameState = {
-            world: this.world,
+            world: this.world, // Save world as a simple array
             player: {
                 x: this.player.x,
                 y: this.player.y
             },
             inventory: this.inventory.items,
-            celestialBody: this.celestialBody
+            celestialBody: this.celestialBody,
+            creatures: this.creatures
         };
         localStorage.setItem('SereludeSaveData', JSON.stringify(gameState));
         console.log("World Saved!");
@@ -309,14 +354,17 @@ const g = {
         if (savedStateJSON) {
             try {
                 const savedState = JSON.parse(savedStateJSON);
-                this.world = savedState.world;
+                this.world = savedState.world; // Load world as a simple array
                 this.player.x = savedState.player.x;
                 this.player.y = savedState.player.y;
                 this.inventory.items = savedState.inventory;
                 this.celestialBody = savedState.celestialBody;
-
-                const groundLevelY = this.findGroundLevel();
-                this.initCreatures(groundLevelY);
+                if (savedState.creatures) {
+                    this.creatures = savedState.creatures;
+                } else {
+                    const groundLevelY = this.findGroundLevel();
+                    this.initCreatures(groundLevelY);
+                }
                 console.log("World Loaded!");
                 return true;
             } catch (e) {
@@ -328,18 +376,24 @@ const g = {
     },
 
     findGroundLevel: function() {
-        const midX = Math.floor(this.world.length > 0 ? this.world[0].length / 2 : this.worldWidth / 2);
-        for (let y = 0; y < this.worldHeight; y++) {
-            if (this.isSolid(this.world[y][midX])) {
+        const playerTileX = Math.floor(this.player.x / this.TILE_SIZE);
+        // Search downwards from the top of the world (chunkSizeY is max height of a chunk)
+        for (let y = 0; y < this.chunkSizeY * 2; y++) { // Search a reasonable vertical range
+            if (this.isSolid(playerTileX, y)) {
                 return y;
             }
         }
-        return Math.floor(this.worldHeight * 0.8);
+        return Math.floor(this.worldHeight * 0.8); // Fallback if no ground found (shouldn't happen with proper generation)
     },
 
     generateTrees: function(groundLevelY) {
         let x = 5;
         while (x < this.worldWidth - 3) {
+            // Ensure tree doesn't spawn on water
+            if (this.world[groundLevelY][x] === 9) {
+                x++;
+                continue;
+            }
             if (Math.random() < 0.1) {
                 const treeHeight = Math.floor(Math.random() * 4) + 4;
                 const treeTopY = groundLevelY - treeHeight;
@@ -366,10 +420,20 @@ const g = {
             if (this.world[groundLevelY][x] === 1 && this.world[groundLevelY - 1][x] === 0) {
                 if (Math.random() < 0.08) {
                     const clusterSize = Math.floor(Math.random() * 3) + 1;
+                    const flowerType = Math.floor(Math.random() * 3); // 0 for Lily, 1 for Lily of the Valley, 2 for Rose
+
                     for (let i = 0; i < clusterSize && (x + i) < this.worldWidth - 1; i++) {
                         if (this.world[groundLevelY][x+i] === 1 && this.world[groundLevelY - 1][x+i] === 0) {
-                            this.world[groundLevelY - 1][x + i] = 6;
-                            this.world[groundLevelY - 2][x + i] = 7;
+                            if (flowerType === 0) { // Original Lily
+                                this.world[groundLevelY - 1][x + i] = 6;
+                                this.world[groundLevelY - 2][x + i] = 7;
+                            } else if (flowerType === 1) { // Lily of the Valley
+                                this.world[groundLevelY - 1][x + i] = 10;
+                                this.world[groundLevelY - 2][x + i] = 11;
+                            } else if (flowerType === 2) { // Rose
+                                this.world[groundLevelY - 1][x + i] = 12;
+                                this.world[groundLevelY - 2][x + i] = 13;
+                            }
                         }
                     }
                     x += clusterSize + Math.floor(Math.random() * 5) + 3;
@@ -407,6 +471,86 @@ const g = {
                 vy: (Math.random() - 0.5) * 2,
                 direction: 'right',
                 aiTimer: Math.random() * 100
+            });
+        }
+        // Add Squirrels
+        for (let i = 0; i < 4; i++) {
+            const spawnX = Math.random() * this.worldWidth * this.TILE_SIZE;
+            this.creatures.push({
+                type: 'squirrel',
+                x: spawnX,
+                y: groundLevelY * this.TILE_SIZE - this.TILE_SIZE,
+                width: this.TILE_SIZE * 0.8,
+                height: this.TILE_SIZE,
+                vx: 0, vy: 0,
+                onGround: false,
+                direction: Math.random() < 0.5 ? 'left' : 'right',
+                aiTimer: Math.random() * 80 + 40,
+                climbing: false,
+                climbTargetY: null
+            });
+        }
+        // Add Fish
+        for (let i = 0; i < 8; i++) {
+            const pondStartX = Math.floor(this.worldWidth * 0.3);
+            const pondEndX = Math.floor(this.worldWidth * 0.4);
+            const pondTopY = groundLevelY; 
+            const pondBottomY = groundLevelY + 4; 
+
+            let spawnX, spawnY, tileX, tileY;
+            let attempts = 0;
+            do {
+                spawnX = (Math.random() * (pondEndX - pondStartX) + pondStartX) * this.TILE_SIZE;
+                spawnY = (Math.random() * (pondBottomY - pondTopY) + pondTopY) * this.TILE_SIZE;
+                tileX = Math.floor(spawnX / this.TILE_SIZE);
+                tileY = Math.floor(spawnY / this.TILE_SIZE);
+                attempts++;
+            } while (this.world[tileY]?.[tileX] !== 9 && attempts < 50);
+
+            if (this.world[tileY]?.[tileX] === 9) {
+                this.creatures.push({
+                    type: 'fish',
+                    x: spawnX,
+                    y: spawnY,
+                    width: this.TILE_SIZE,
+                    height: this.TILE_SIZE * 0.6,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    direction: Math.random() < 0.5 ? 'left' : 'right',
+                    aiTimer: Math.random() * 100 + 50,
+                    life: 100
+                });
+            }
+        }
+        // Add Butterflies
+        for (let i = 0; i < 5; i++) {
+            const spawnX = Math.random() * this.worldWidth * this.TILE_SIZE;
+            this.creatures.push({
+                type: 'butterfly',
+                x: spawnX,
+                y: Math.random() * this.c.height * 0.5,
+                width: this.TILE_SIZE * 0.5,
+                height: this.TILE_SIZE * 0.5,
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: (Math.random() - 0.5) * 0.5,
+                aiTimer: Math.random() * 100 + 50,
+                color: Math.random() < 0.5 ? '#FFEB3B' : '#FF9800' // Yellow or Orange
+            });
+        }
+        // Add Fireflies
+        for (let i = 0; i < 5; i++) {
+            const spawnX = Math.random() * this.worldWidth * this.TILE_SIZE;
+            this.creatures.push({
+                type: 'firefly',
+                x: spawnX,
+                y: Math.random() * this.c.height * 0.5,
+                width: this.TILE_SIZE * 0.3,
+                height: this.TILE_SIZE * 0.3,
+                vx: (Math.random() - 0.5) * 0.3,
+                vy: (Math.random() - 0.5) * 0.3,
+                aiTimer: Math.random() * 100 + 50,
+                alpha: 0.8,
+                flicker: Math.random() * Math.PI * 2
             });
         }
     },
@@ -474,6 +618,54 @@ const g = {
         this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.2);
     },
 
+    drawLilyOfTheValleyStemTile: function(x, y) {
+        this.x.fillStyle = this.tileColors.lilyOfTheValleyGreen;
+        this.x.fillRect(x + this.TILE_SIZE * 0.45, y, this.TILE_SIZE * 0.1, this.TILE_SIZE);
+        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.2); // Leaf
+    },
+
+    drawLilyOfTheValleyFlowerTile: function(x, y) {
+        this.x.fillStyle = this.tileColors.lilyOfTheValleyWhite;
+        this.x.beginPath();
+        this.x.arc(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.15, 0, Math.PI * 2);
+        this.x.fill();
+        this.x.beginPath();
+        this.x.arc(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.15, 0, Math.PI * 2);
+        this.x.fill();
+        this.x.beginPath();
+        this.x.arc(x + this.TILE_SIZE * 0.7, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.15, 0, Math.PI * 2);
+        this.x.fill();
+    },
+
+    drawRoseStemTile: function(x, y) {
+        this.x.fillStyle = this.tileColors.roseStemGreen;
+        this.x.fillRect(x + this.TILE_SIZE * 0.45, y, this.TILE_SIZE * 0.1, this.TILE_SIZE);
+        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.6, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.1); // Thorn
+    },
+
+    drawRoseFlowerTile: function(x, y) {
+        this.x.fillStyle = this.tileColors.roseRed;
+        this.x.beginPath();
+        this.x.arc(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.3, this.TILE_SIZE * 0.3, 0, Math.PI * 2);
+        this.x.fill();
+        this.x.fillStyle = '#A52A2A'; // Darker red for center
+        this.x.beginPath();
+        this.x.arc(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.3, this.TILE_SIZE * 0.1, 0, Math.PI * 2);
+        this.x.fill();
+    },
+
+    drawWaterTile: function(x, y) {
+        this.x.fillStyle = this.tileColors.water;
+        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
+        // Add subtle ripples/texture
+        this.x.fillStyle = 'rgba(255, 255, 255, 0.2)'; // Lighter ripples
+        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.8, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.6, this.TILE_SIZE * 0.1);
+        this.x.fillStyle = 'rgba(0, 0, 0, 0.1)'; // Darker ripples/depth
+        this.x.fillRect(x + this.TILE_SIZE * 0.2, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.7, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.7, this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.1);
+    },
+
     drawBird: function(bird) {
         this.x.save();
         const birdCenterX = bird.x + bird.width / 2;
@@ -519,16 +711,19 @@ const g = {
     },
 
     drawWorld: function() {
-        const startCol = Math.floor(this.camera.x / this.TILE_SIZE);
-        const endCol = startCol + (this.c.width / this.TILE_SIZE) + 2;
-        const startRow = Math.floor(this.camera.y / this.TILE_SIZE);
-        const endRow = startRow + (this.c.height / this.TILE_SIZE) + 2;
+        const startPixelX = this.camera.x;
+        const endPixelX = this.camera.x + this.c.width;
+        const startPixelY = this.camera.y;
+        const endPixelY = this.camera.y + this.c.height;
 
-        for (let y = startRow; y < endRow; y++) {
-            for (let x = startCol; x < endCol; x++) {
-                if (x < 0 || x >= this.worldWidth || y < 0 || y >= this.worldHeight) continue;
+        const startTileX = Math.floor(startPixelX / this.TILE_SIZE);
+        const endTileX = Math.ceil(endPixelX / this.TILE_SIZE);
+        const startTileY = Math.floor(startPixelY / this.TILE_SIZE);
+        const endTileY = Math.ceil(endPixelY / this.TILE_SIZE);
 
-                const tileType = this.world[y][x];
+        for (let y = startTileY; y < endTileY; y++) {
+            for (let x = startTileX; x < endTileX; x++) {
+                const tileType = this.getTile(x, y);
                 const tileX = x * this.TILE_SIZE - this.camera.x;
                 const tileY = y * this.TILE_SIZE - this.camera.y;
 
@@ -541,6 +736,11 @@ const g = {
                     case 6: this.drawFlowerStemTile(tileX, tileY); break;
                     case 7: this.drawFlowerPetalTile(tileX, tileY); break;
                     case 8: this.drawSaplingTile(tileX, tileY); break;
+                    case 9: this.drawWaterTile(tileX, tileY); break;
+                    case 10: this.drawLilyOfTheValleyStemTile(tileX, tileY); break;
+                    case 11: this.drawLilyOfTheValleyFlowerTile(tileX, tileY); break;
+                    case 12: this.drawRoseStemTile(tileX, tileY); break;
+                    case 13: this.drawRoseFlowerTile(tileX, tileY); break;
                 }
             }
         }
@@ -830,88 +1030,414 @@ const g = {
         this.x.restore();
     },
 
+    drawSquirrel: function(squirrel) {
+        this.x.save();
+        const squirrelCenterX = squirrel.x - this.camera.x + squirrel.width / 2;
+
+        if (squirrel.direction === 'left') {
+            this.x.translate(squirrelCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-squirrelCenterX, 0);
+        }
+
+        const pSize = this.TILE_SIZE / 5;
+
+        const bodyColor = '#8B5A2B'; // Brown
+        const bellyColor = '#A97B4F'; // Lighter brown
+        const eyeColor = '#2E2E2E';
+
+        // Body
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize, squirrel.y - this.camera.y + pSize * 3, pSize * 3, pSize * 3);
+        this.x.fillStyle = bellyColor;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 2, squirrel.y - this.camera.y + pSize * 4, pSize, pSize * 2);
+
+        // Head
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 3, squirrel.y - this.camera.y + pSize * 2, pSize * 2, pSize * 2);
+
+        // Ear
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 4, squirrel.y - this.camera.y + pSize, pSize, pSize);
+
+        // Tail
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(squirrel.x - this.camera.x, squirrel.y - this.camera.y + pSize * 4, pSize * 2, pSize);
+        this.x.fillRect(squirrel.x - this.camera.x + pSize, squirrel.y - this.camera.y + pSize * 3, pSize, pSize);
+
+        // Eye
+        this.x.fillStyle = eyeColor;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 4, squirrel.y - this.camera.y + pSize * 3, pSize, pSize);
+
+        this.x.restore();
+    },
+
+    drawFish: function(fish) {
+        this.x.save();
+        const fishCenterX = fish.x - this.camera.x + fish.width / 2;
+
+        if (fish.direction === 'left') {
+            this.x.translate(fishCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-fishCenterX, 0);
+        }
+
+        const pSize = fish.width / 5;
+
+        const bodyColor = '#4CAF50'; // Greenish blue
+        const finColor = '#8BC34A'; // Lighter green
+        const eyeColor = '#2E2E2E';
+
+        // Body
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(fish.x - this.camera.x + pSize, fish.y - this.camera.y + pSize, pSize * 3, pSize * 2);
+        this.x.fillRect(fish.x - this.camera.x + pSize * 4, fish.y - this.camera.y + pSize * 1.5, pSize, pSize);
+
+        // Tail
+        this.x.fillStyle = finColor;
+        this.x.fillRect(fish.x - this.camera.x, fish.y - this.camera.y + pSize * 1.5, pSize, pSize);
+        this.x.fillRect(fish.x - this.camera.x + pSize * 0.5, fish.y - this.camera.y + pSize * 0.5, pSize * 0.5, pSize * 2);
+
+        // Eye
+        this.x.fillStyle = eyeColor;
+        this.x.fillRect(fish.x - this.camera.x + pSize * 3, fish.y - this.camera.y + pSize * 1, pSize * 0.5, pSize * 0.5);
+
+        this.x.restore();
+    },
+
+    drawButterfly: function(butterfly) {
+        this.x.save();
+        const butterflyCenterX = butterfly.x - this.camera.x + butterfly.width / 2;
+
+        if (butterfly.vx < 0) {
+            this.x.translate(butterflyCenterX, 0);
+            this.x.scale(-1, 1);
+            this.x.translate(-butterflyCenterX, 0);
+        }
+
+        const pSize = butterfly.width / 4;
+        this.x.fillStyle = butterfly.color;
+
+        // Body
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.5, butterfly.y - this.camera.y + pSize * 1.5, pSize, pSize);
+
+        // Wings
+        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize, pSize, pSize);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize, pSize, pSize);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize * 2, pSize, pSize);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize * 2, pSize, pSize);
+
+        this.x.restore();
+    },
+
+    drawFirefly: function(firefly) {
+        this.x.save();
+        this.x.globalAlpha = firefly.alpha * (0.5 + 0.5 * Math.sin(firefly.flicker));
+        this.x.fillStyle = '#FFFF00'; // Yellow
+        this.x.fillRect(firefly.x - this.camera.x, firefly.y - this.camera.y, firefly.width, firefly.height);
+        this.x.globalAlpha = 1;
+        this.x.restore();
+    },
+
     updateCreatures: function() {
-        this.creatures.forEach(creature => {
-            if (creature.type === 'bunny') {
-                creature.vy += 0.5;
-                creature.y += creature.vy;
-
-                creature.aiTimer--;
-                if (creature.aiTimer <= 0) {
-                    const action = Math.random();
-                    if (action < 0.4) {
-                        if (creature.onGround) {
-                            creature.vy = -4;
-                            creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 1 + 1);
-                            creature.onGround = false;
-                        }
-                    } else if (action < 0.7) {
-                        creature.direction = creature.direction === 'left' ? 'right' : 'left';
-                        creature.vx = 0;
-                    } else {
-                        creature.vx = 0;
-                    }
-                    creature.aiTimer = Math.random() * 120 + 60;
-                }
-
-                if (creature.dropCooldown > 0) {
-                    creature.dropCooldown--;
-                } else {
-                    const distToPlayer = Math.hypot(this.player.x - creature.x, this.player.y - creature.y);
-                    if (distToPlayer < this.TILE_SIZE * 4) {
-                        this.hearts.push({ x: creature.x + creature.width / 2, y: creature.y, size: 10, life: 120, vy: -1 });
-                        if (creature.onGround) {
-                            creature.vy = -6;
-                            creature.vx = this.player.x < creature.x ? 3 : -3;
-                        }
-                        creature.dropCooldown = 60;
-                    }
-                }
-
-                creature.x += creature.vx;
-
-                creature.onGround = false;
-                const startY = Math.floor(creature.y / this.TILE_SIZE);
-                const endY = Math.floor((creature.y + creature.height) / this.TILE_SIZE);
-                const tileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
-
-                for (let y = startY; y <= endY; y++) {
-                    if (this.world[y] && this.isSolid(this.world[y][tileX])) {
-                        const tile = { x: tileX * this.TILE_SIZE, y: y * this.TILE_SIZE, width: this.TILE_SIZE, height: this.TILE_SIZE };
-                        if (this.checkCollision(creature, tile)) {
-                            if (creature.vy > 0) {
-                                creature.y = tile.y - creature.height;
-                                creature.vy = 0;
-                                creature.onGround = true;
-                                creature.vx *= 0.8;
+        const groundLevelY = this.findGroundLevel();
+        this.creatures.forEach((creature, index) => {
+                        if (creature.type === 'bunny') {
+                            creature.vy += 0.5;
+                            creature.y += creature.vy;
+            
+                            // Check if bunny is in water
+                            const bunnyTileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+                            const bunnyTileY = Math.floor((creature.y + creature.height / 2) / this.TILE_SIZE);
+                                                        const isBunnyInWater = this.getTile(bunnyTileX, bunnyTileY) === 9;
+                                        
+                                                        if (isBunnyInWater) {
+                                                            creature.vy *= 0.6; // Reduce gravity effect (buoyancy)
+                                                            creature.vx *= 0.7; // Slow down horizontal movement
+                                                        }
+                                        
+                                                        creature.aiTimer--;
+                                                        if (creature.aiTimer <= 0) {
+                                                            const action = Math.random();
+                                                            if (action < 0.4) {
+                                                                if (creature.onGround || isBunnyInWater) { // Allow jumping from water
+                                                                    creature.vy = -4;
+                                                                    creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 1 + 1);
+                                                                    creature.onGround = false;
+                                                                }
+                                                            } else if (action < 0.7) {
+                                                                creature.direction = creature.direction === 'left' ? 'right' : 'left';
+                                                                creature.vx = 0;
+                                                            } else {
+                                                                creature.vx = 0;
+                                                            }
+                                                            creature.aiTimer = Math.random() * 120 + 60;
+                                                        }
+                                        
+                                                        if (creature.dropCooldown > 0) {
+                                                            creature.dropCooldown--;
+                                                        } else {
+                                                            const distToPlayer = Math.hypot(this.player.x - creature.x, this.player.y - creature.y);
+                                                            if (distToPlayer < this.TILE_SIZE * 4) {
+                                                                this.hearts.push({ x: creature.x + creature.width / 2, y: creature.y, size: 10, life: 120, vy: -1 });
+                                                                if (creature.onGround) {
+                                                                    creature.vy = -6;
+                                                                    creature.vx = this.player.x < creature.x ? 3 : -3;
+                                                                }
+                                                                creature.dropCooldown = 60;
+                                                            }
+                                                        }
+                                        
+                                                        creature.x += creature.vx;
+                                        
+                                                        creature.onGround = false;
+                                                        const startY = Math.floor(creature.y / this.TILE_SIZE);
+                                                        const endY = Math.floor((creature.y + creature.height) / this.TILE_SIZE);
+                                                        const tileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+                                        
+                                                        for (let y = startY; y <= endY; y++) {
+                                                            if (this.isSolid(this.getTile(tileX, y))) {
+                                    const tile = { x: tileX * this.TILE_SIZE, y: y * this.TILE_SIZE, width: this.TILE_SIZE, height: this.TILE_SIZE };
+                                    if (this.checkCollision(creature, tile)) {
+                                        if (creature.vy > 0) {
+                                            creature.y = tile.y - creature.height;
+                                            creature.vy = 0;
+                                            creature.onGround = true;
+                                            creature.vx *= 0.8;
+                                        }
+                                    }
+                                }
                             }
-                        }
-                    }
-                }
-
-                if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
-                if (creature.x + creature.width > this.worldWidth * this.TILE_SIZE) { creature.x = this.worldWidth * this.TILE_SIZE - creature.width; creature.direction = 'left'; }
-            } else if (creature.type === 'bird') {
+            
+                            if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
+                            if (creature.x + creature.width > this.worldWidth * this.TILE_SIZE) { creature.x = this.worldWidth * this.TILE_SIZE - creature.width; creature.direction = 'left'; }
+            
+                        } else if (creature.type === 'squirrel') {
+                            creature.vy += 0.5; // Gravity
+                            creature.y += creature.vy;
+            
+                            // Check if squirrel is in water
+                            const squirrelTileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+                            const squirrelTileY = Math.floor((creature.y + creature.height / 2) / this.TILE_SIZE);
+                            const isSquirrelInWater = this.getTile(squirrelTileX, squirrelTileY) === 9;
+            
+                            if (isSquirrelInWater) {
+                                creature.vy *= 0.6; // Reduce gravity effect (buoyancy)
+                                creature.vx *= 0.7; // Slow down horizontal movement
+                            }
+            
+                            creature.aiTimer--;
+                            if (creature.aiTimer <= 0) {
+                                const action = Math.random();
+                                if (creature.climbing) {
+                                    if (action < 0.5) { // Stop climbing and move horizontally
+                                        creature.climbing = false;
+                                        creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 0.5 + 0.5);
+                                    } else { // Continue climbing or change direction
+                                        creature.vy = (Math.random() < 0.5 ? -1 : 1) * (Math.random() * 1 + 0.5);
+                                        creature.aiTimer = Math.random() * 60 + 30;
+                                    }
+                                } else { // On ground or in water
+                                    if (action < 0.4) { // Move horizontally
+                                        creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 0.5 + 0.5);
+                                    } else if (action < 0.6) { // Jump
+                                        if (creature.onGround || isSquirrelInWater) { // Allow jumping from water
+                                            creature.vy = -4;
+                                            creature.onGround = false;
+                                        }
+                                    } else if (action < 0.8) { // Change direction
+                                        creature.direction = creature.direction === 'left' ? 'right' : 'left';
+                                        creature.vx = 0;
+                                    } else { // Try to climb a tree
+                                        const currentTileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+                                        const currentTileY = Math.floor((creature.y + creature.height) / this.TILE_SIZE);
+                                        // Check for tree trunk (tile type 4)
+                                        if (this.getTile(currentTileX, currentTileY - 1) === 4) {
+                                            creature.climbing = true;
+                                            creature.vx = 0;
+                                            creature.vy = -1; // Start climbing up
+                                            creature.climbTargetY = currentTileY * this.TILE_SIZE - this.TILE_SIZE * 4; // Climb up to 4 tiles
+                                        }
+                                    }
+                                }
+                                creature.aiTimer = Math.random() * 120 + 60;
+                            }
+            
+                            creature.x += creature.vx;
+            
+                            // Collision with ground/tree
+                            creature.onGround = false;
+                            const startY = Math.floor(creature.y / this.TILE_SIZE);
+                            const endY = Math.floor((creature.y + creature.height) / this.TILE_SIZE);
+                            const tileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+            
+                            for (let y = startY; y <= endY; y++) {
+                                if (this.getTile(tileX, y) !== 0 && (this.isSolid(this.getTile(tileX, y)) || this.getTile(tileX, y) === 4)) { // Solid or wood
+                                    const tile = { x: tileX * this.TILE_SIZE, y: y * this.TILE_SIZE, width: this.TILE_SIZE, height: this.TILE_SIZE };
+                                    if (this.checkCollision(creature, tile)) {
+                                        if (creature.vy > 0 && !creature.climbing) { // Land on ground
+                                            creature.y = tile.y - creature.height;
+                                            creature.vy = 0;
+                                            creature.onGround = true;
+                                            creature.vx *= 0.8;
+                                        } else if (creature.climbing) { // Climbing collision
+                                            if (creature.vy < 0 && creature.y <= creature.climbTargetY) { // Reached top of climb
+                                                creature.climbing = false;
+                                                creature.vy = 0;
+                                                creature.onGround = true; // Treat as on ground for horizontal movement
+                                            } else if (creature.vy > 0 && this.getTile(tileX, y) === 4) { // Climbing down, hit bottom of tree
+                                                creature.climbing = false;
+                                                creature.y = tile.y - creature.height;
+                                                creature.vy = 0;
+                                                creature.onGround = true;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+            
+                            // Boundary checks
+                            if (creature.x < 0) { creature.x = 0; creature.direction = 'right'; }
+                            if (creature.x + creature.width > this.worldWidth * this.TILE_SIZE) { creature.x = this.worldWidth * this.TILE_SIZE - creature.width; creature.direction = 'left'; }
+            
+                        } else if (creature.type === 'fish') {
                 creature.aiTimer--;
                 if (creature.aiTimer <= 0) {
-                    creature.vx += (Math.random() - 0.5) * 0.5;
-                    creature.vy += (Math.random() - 0.5) * 0.5;
-                    creature.vx = Math.max(-1, Math.min(1, creature.vx));
-                    creature.vy = Math.max(-1, Math.min(1, creature.vy));
+                    creature.vx = (creature.direction === 'left' ? -1 : 1) * (Math.random() * 0.5 + 0.2);
+                    creature.vy = (Math.random() - 0.5) * 0.5;
                     creature.aiTimer = Math.random() * 100 + 50;
                 }
 
                 creature.x += creature.vx;
                 creature.y += creature.vy;
+
+                const currentTileX = Math.floor((creature.x + creature.width / 2) / this.TILE_SIZE);
+                const currentTileY = Math.floor((creature.y + creature.height / 2) / this.TILE_SIZE);
+                const isInWater = this.getTile(currentTileX, currentTileY) === 9;
+
+                if (!isInWater) {
+                    creature.life--;
+                    if (creature.life <= 0) {
+                        this.creatures.splice(index, 1); // Remove fish if life is 0
+                        return; // Skip further updates for this fish
+                    }
+                } else {
+                    creature.life = 100; // Reset life if in water
+                }
+
+                // Keep fish within water boundaries
+                const pondStartX = Math.floor(this.worldWidth * 0.3);
+                const pondEndX = Math.floor(this.worldWidth * 0.4);
+                const pondTopY = groundLevelY; 
+                const pondBottomY = groundLevelY + 4; 
+
+                if (creature.x < pondStartX * this.TILE_SIZE) { creature.x = pondStartX * this.TILE_SIZE; creature.direction = 'right'; creature.vx *= -1; }
+                if (creature.x + creature.width > pondEndX * this.TILE_SIZE) { creature.x = pondEndX * this.TILE_SIZE - creature.width; creature.direction = 'left'; creature.vx *= -1; }
+                if (creature.y < pondTopY * this.TILE_SIZE) { creature.y = pondTopY * this.TILE_SIZE; creature.vy *= -1; }
+                if (creature.y + creature.height > pondBottomY * this.TILE_SIZE) { creature.y = pondBottomY * this.TILE_SIZE - creature.height; creature.vy *= -1; }
+
                 creature.direction = creature.vx >= 0 ? 'right' : 'left';
 
-                if (creature.x < 0 || creature.x + creature.width > this.worldWidth * this.TILE_SIZE) creature.vx *= -1;
-                if (creature.y < 0 || creature.y + creature.height > this.worldHeight * this.TILE_SIZE * 0.6) creature.vy *= -1;
-            }
-        });
-    },
+            } else if (creature.type === 'bird') {
 
-    updatePlayer: function() {
+                                creature.aiTimer--;
+
+                                if (creature.aiTimer <= 0) {
+
+                                    creature.vx += (Math.random() - 0.5) * 0.5;
+
+                                    creature.vy += (Math.random() - 0.5) * 0.5;
+
+                                    creature.vx = Math.max(-1, Math.min(1, creature.vx));
+
+                                    creature.vy = Math.max(-1, Math.min(1, creature.vy));
+
+                                    creature.aiTimer = Math.random() * 100 + 50;
+
+                                }
+
+                
+
+                                creature.x += creature.vx;
+
+                                creature.y += creature.vy;
+
+                                creature.direction = creature.vx >= 0 ? 'right' : 'left';
+
+                
+
+                                if (creature.x < 0 || creature.x + creature.width > this.worldWidth * this.TILE_SIZE) creature.vx *= -1;
+
+                                if (creature.y < 0 || creature.y + creature.height > this.worldHeight * this.TILE_SIZE * 0.6) creature.vy *= -1;
+
+                            } else if (creature.type === 'butterfly') {
+
+                                creature.aiTimer--;
+
+                                if (creature.aiTimer <= 0) {
+
+                                    creature.vx += (Math.random() - 0.5) * 0.3;
+
+                                    creature.vy += (Math.random() - 0.5) * 0.3;
+
+                                    creature.vx = Math.max(-0.5, Math.min(0.5, creature.vx));
+
+                                    creature.vy = Math.max(-0.5, Math.min(0.5, creature.vy));
+
+                                    creature.aiTimer = Math.random() * 100 + 50;
+
+                                }
+
+                
+
+                                creature.x += creature.vx;
+
+                                creature.y += creature.vy;
+
+                
+
+                                if (creature.x < 0 || creature.x + creature.width > this.worldWidth * this.TILE_SIZE) creature.vx *= -1;
+
+                                if (creature.y < 0 || creature.y + creature.height > this.c.height * 0.7) creature.vy *= -1;
+
+                
+
+                            } else if (creature.type === 'firefly') {
+
+                                creature.aiTimer--;
+
+                                if (creature.aiTimer <= 0) {
+
+                                    creature.vx += (Math.random() - 0.5) * 0.2;
+
+                                    creature.vy += (Math.random() - 0.5) * 0.2;
+
+                                    creature.vx = Math.max(-0.3, Math.min(0.3, creature.vx));
+
+                                    creature.vy = Math.max(-0.3, Math.min(0.3, creature.vy));
+
+                                    creature.aiTimer = Math.random() * 80 + 40;
+
+                                }
+
+                
+
+                                creature.x += creature.vx;
+
+                                creature.y += creature.vy;
+
+                                creature.flicker += 0.1; // For flickering effect
+
+                
+
+                                if (creature.x < 0 || creature.x + creature.width > this.worldWidth * this.TILE_SIZE) creature.vx *= -1;
+
+                                if (creature.y < 0 || creature.y + creature.height > this.c.height * 0.7) creature.vy *= -1;
+
+                            }
+
+                        });                    },
+                
+                    updatePlayer: function() {
         if (this.keys.a) {
             this.player.vx = -this.player.speed;
             this.player.direction = 'left';
@@ -935,6 +1461,19 @@ const g = {
 
         this.player.vy += 0.4;
 
+        // Check if player is in water
+        const playerTileX = Math.floor((this.player.x + this.player.width / 2) / this.TILE_SIZE);
+        const playerTileY = Math.floor((this.player.y + this.player.height / 2) / this.TILE_SIZE);
+        const isInWater = this.world[playerTileY]?.[playerTileX] === 9;
+
+        if (isInWater) {
+            this.player.vy *= 0.6; // Reduce gravity effect (buoyancy)
+            this.player.vx *= 0.7; // Slow down horizontal movement
+            if (this.keys.w || this.keys[' ']) { // Allow swimming up
+                this.player.vy = -6; // Increased swim force
+            }
+        }
+
         this.player.x += this.player.vx;
 
         let startX = Math.floor(this.player.x / this.TILE_SIZE);
@@ -944,10 +1483,7 @@ const g = {
 
         for (let y = startY; y <= endY; y++) {
             for (let x = startX; x <= endX; x++) {
-                if (this.world[y] && this.isSolid(this.world[y][x])) {
-                    if (y < 0 || y >= this.worldHeight || x < 0 || x >= this.worldWidth) {
-                        continue;
-                    }
+                if (this.getTile(x, y) !== 0 && this.isSolid(this.getTile(x, y))) { // Check if tile exists and is solid
                     const tile = { x: x * this.TILE_SIZE, y: y * this.TILE_SIZE, width: this.TILE_SIZE, height: this.TILE_SIZE };
                     if (this.checkCollision(this.player, tile)) {
                         if (this.player.vx > 0) {
@@ -971,10 +1507,7 @@ const g = {
 
         for (let y = startY; y <= endY; y++) {
             for (let x = startX; x <= endX; x++) {
-                if (this.world[y] && this.isSolid(this.world[y][x])) {
-                    if (y < 0 || y >= this.worldHeight || x < 0 || x >= this.worldWidth) {
-                        continue;
-                    }
+                if (this.getTile(x, y) !== 0 && this.isSolid(this.getTile(x, y))) { // Check if tile exists and is solid
                     const tile = { x: x * this.TILE_SIZE, y: y * this.TILE_SIZE, width: this.TILE_SIZE, height: this.TILE_SIZE };
                     if (this.checkCollision(this.player, tile)) {
                         if (this.player.vy > 0) {
@@ -1052,6 +1585,29 @@ const g = {
                 this.x.fillStyle = '#e0e0d1';
                 this.x.fillRect(p * 7, p * 5, p * 2, p);
                 break;
+            case 'lilyOfTheValley':
+                this.x.fillStyle = this.tileColors.lilyOfTheValleyGreen;
+                this.x.fillRect(p * 7, p * 5, p * 2, p * 8);
+                this.x.fillStyle = this.tileColors.lilyOfTheValleyWhite;
+                this.x.beginPath();
+                this.x.arc(p * 8, p * 4, p * 1.5, 0, Math.PI * 2);
+                this.x.fill();
+                this.x.beginPath();
+                this.x.arc(p * 6, p * 6, p * 1.5, 0, Math.PI * 2);
+                this.x.fill();
+                break;
+            case 'rose':
+                this.x.fillStyle = this.tileColors.roseStemGreen;
+                this.x.fillRect(p * 7, p * 5, p * 2, p * 8);
+                this.x.fillStyle = this.tileColors.roseRed;
+                this.x.beginPath();
+                this.x.arc(p * 8, p * 4, p * 2, 0, Math.PI * 2);
+                this.x.fill();
+                this.x.fillStyle = '#A52A2A';
+                this.x.beginPath();
+                this.x.arc(p * 8, p * 4, p, 0, Math.PI * 2);
+                this.x.fill();
+                break;
             case 'sapling':
                 this.x.fillStyle = this.tileColors.sapling;
                 this.x.fillRect(p * 7, p * 8, p * 2, p * 6);
@@ -1088,27 +1644,29 @@ const g = {
 
             this.drawItemIcon(item, slotX, startY, slotSize);
 
-            if (item.amount !== undefined) {
-                this.x.font = '10px "Press Start 2P"';
-                this.x.textAlign = 'right';
-                this.x.fillStyle = 'rgba(0, 0, 0, 0.7)';
-                this.x.fillText(item.amount, slotX + slotSize - 6, startY + slotSize - 5);
-                this.x.fillStyle = 'white';
-                this.x.fillText(item.amount, slotX + slotSize - 7, startY + slotSize - 6);
-                this.x.textAlign = 'center';
-            }
+
         });
     },
 
     renderMinimapBackground: function() {
+        // For now, render a fixed size minimap based on initial world dimensions
+        // This will need to be updated for a truly infinite minimap
         const minimapDisplayWidth = 200;
         const minimapDisplayHeight = Math.floor(this.worldHeight * (minimapDisplayWidth / this.worldWidth));
-        this.minimapBuffer.width = this.worldWidth;
-        this.minimapBuffer.height = this.worldHeight;
+        this.minimapBuffer.width = minimapDisplayWidth;
+        this.minimapBuffer.height = minimapDisplayHeight;
 
-        for (let y = 0; y < this.worldHeight; y++) {
-            for (let x = 0; x < this.worldWidth; x++) {
-                const tileType = this.world[y][x];
+        this.minimapBufferCtx.clearRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
+
+        // Iterate over a fixed area for minimap, or loaded chunks
+        const startWorldX = 0; // For now, assume minimap starts at 0,0
+        const endWorldX = this.worldWidth; // Use initial worldWidth for minimap scale
+        const startWorldY = 0;
+        const endWorldY = this.worldHeight;
+
+        for (let y = startWorldY; y < endWorldY; y++) {
+            for (let x = startWorldX; x < endWorldX; x++) {
+                const tileType = this.getTile(x, y);
                 let color = 'transparent';
                 switch (tileType) {
                     case 1: color = this.tileColors.grass; break;
@@ -1116,10 +1674,18 @@ const g = {
                     case 3: color = this.tileColors.stone; break;
                     case 4: color = this.tileColors.wood; break;
                     case 5: color = this.tileColors.leaves; break;
+                    case 9: color = this.tileColors.water; break; // Add water to minimap
+                    case 10: color = this.tileColors.lilyOfTheValleyGreen; break;
+                    case 11: color = this.tileColors.lilyOfTheValleyWhite; break;
+                    case 12: color = this.tileColors.roseStemGreen; break;
+                    case 13: color = this.tileColors.roseRed; break;
                 }
                 if (color !== 'transparent') {
+                    // Scale down to minimap buffer size
+                    const minimapX = Math.floor(x * (minimapDisplayWidth / this.worldWidth));
+                    const minimapY = Math.floor(y * (minimapDisplayHeight / this.worldHeight));
                     this.minimapBufferCtx.fillStyle = color;
-                    this.minimapBufferCtx.fillRect(x, y, 1, 1);
+                    this.minimapBufferCtx.fillRect(minimapX, minimapY, 1, 1);
                 }
             }
         }
@@ -1188,6 +1754,21 @@ const g = {
         this.renderMinimapBackground();
     },
 
+
+
+    getTile: function(worldX, worldY) {
+        if (worldY >= 0 && worldY < this.worldHeight && worldX >= 0 && worldX < this.worldWidth) {
+            return this.world[worldY][worldX];
+        }
+        return 0; // Default to air outside world bounds
+    },
+
+    setTile: function(worldX, worldY, type) {
+        if (worldY >= 0 && worldY < this.worldHeight && worldX >= 0 && worldX < this.worldWidth) {
+            this.world[worldY][worldX] = type;
+        }
+    },
+
     drawGameWorld: function() {
         this.x.clearRect(0, 0, this.c.width, this.c.height);
 
@@ -1206,6 +1787,10 @@ const g = {
         this.creatures.forEach(creature => {
             if (creature.type === 'bunny') this.drawBunny(creature);
             else if (creature.type === 'bird') this.drawBird(creature);
+            else if (creature.type === 'squirrel') this.drawSquirrel(creature);
+            else if (creature.type === 'fish') this.drawFish(creature);
+            else if (creature.type === 'butterfly' && !this.isNight) this.drawButterfly(creature);
+            else if (creature.type === 'firefly' && this.isNight) this.drawFirefly(creature);
         });
 
         this.drawInventory();
@@ -1232,7 +1817,7 @@ const g = {
         const gap = 2 * pixelSize;
         const totalWidth = textWidth + gap + heartWidth;
         const startX = (this.c.width - totalWidth) / 2;
-        this.drawPixelText(this.x, 'SERELUDE', startX, this.c.height / 2 - 150, pixelSize, 'white');
+        this.drawPixelText(this.x, 'SERELUDE', startX, this.c.height / 2 - 150, pixelSize, '#2E2E2E');
         
         const heartData = [[1,0],[5,0],[0,1],[2,1],[4,1],[6,1],[0,2],[6,2],[0,3],[6,3],[1,4],[5,4],[2,5],[4,5],[3,6]];
         const pulseFactor = (Math.sin(Date.now() / 400) + 1) / 2;
@@ -1244,7 +1829,7 @@ const g = {
             this.x.fillRect(heartX + p[0] * heartSize, heartY + p[1] * heartSize, heartSize, heartSize);
         });
 
-        this.x.fillStyle = 'white';
+        this.x.fillStyle = '#2E2E2E';
         this.x.font = 'italic 16px "Press Start 2P"';
         this.x.textAlign = 'center';
         const poem = [
@@ -1258,8 +1843,7 @@ const g = {
             this.x.fillText(line, this.c.width / 2, this.c.height / 2 - 50 + index * 20);
         });
 
-        this.x.font = '14px "Press Start 2P"';
-        this.x.fillText('Explore a dynamic world with a day/night cycle, mine and place blocks, meet friendly creatures, and save your creations.', this.c.width / 2, this.c.height / 2 + 80);
+
 
         this.startButton = {
             x: this.c.width / 2 - 100,
@@ -1269,7 +1853,7 @@ const g = {
         };
         this.x.fillStyle = '#F2A9A9';
         this.x.fillRect(this.startButton.x, this.startButton.y, this.startButton.width, this.startButton.height);
-        this.x.fillStyle = 'white';
+        this.x.fillStyle = '#2E2E2E';
         this.x.font = '20px "Press Start 2P"';
         this.x.fillText('Start Game', this.c.width / 2, this.c.height / 2 + 155);
     },
