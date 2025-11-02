@@ -78,6 +78,13 @@ const g = {
         x: 0, y: 0 // The position of the camera
     },
 
+    // Parallax Background Layers
+    backgroundLayers: [
+        { color: '#B0D8F0', speed: 0.1 }, // Farthest layer (light blue)
+        { color: '#87CEEB', speed: 0.2 }, // Mid layer (sky blue)
+        { color: '#6495ED', speed: 0.3 }  // Closest layer (cornflower blue)
+    ],
+
     // Colors used for drawing tiles
     tileColors: {
         sky: 'transparent',
@@ -669,118 +676,272 @@ const g = {
 
     // Draws a grass tile
     drawGrassTile: function(x, y) {
+        const size = this.TILE_SIZE;
+        const grassLight = '#8BC34A';
+        const grassDarker = '#4CAF50';
+
         this.x.fillStyle = this.tileColors.dirt;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
+        this.x.fillRect(x, y, size, size);
+
+        // Base grass layer
         this.x.fillStyle = this.tileColors.grass;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE / 2);
+        this.x.fillRect(x, y, size, size / 2);
+
+        // Grass variations and details
+        this.x.fillStyle = grassLight;
+        this.x.fillRect(x + size * 0.1, y, size * 0.2, size * 0.3); // Light patch
+        this.x.fillRect(x + size * 0.6, y + size * 0.1, size * 0.3, size * 0.2); // Another light patch
+
         this.x.fillStyle = this.tileColors.grassDark;
-        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.1);
-        this.x.fillRect(x + this.TILE_SIZE * 0.7, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.1);
-        this.x.fillRect(x + this.TILE_SIZE * 0.4, y, this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.2);
+        this.x.fillRect(x + size * 0.3, y + size * 0.2, size * 0.2, size * 0.2); // Dark patch
+        this.x.fillRect(x + size * 0.8, y, size * 0.1, size * 0.3); // Another dark patch
+
+        // Individual grass blades/tufts
+        this.x.fillStyle = grassDarker;
+        this.x.fillRect(x + size * 0.05, y + size * 0.4, size * 0.05, size * 0.1); // Small blade
+        this.x.fillRect(x + size * 0.25, y + size * 0.35, size * 0.05, size * 0.15); // Taller blade
+        this.x.fillRect(x + size * 0.7, y + size * 0.45, size * 0.05, size * 0.05); // Tiny blade
     },
 
     // Draws a dirt tile
     drawDirtTile: function(x, y, size = this.TILE_SIZE) {
+        const dirtDark = '#7A4F24';
+
         this.x.fillStyle = this.tileColors.dirt;
         this.x.fillRect(x, y, size, size);
+
+        // Dirt variations and details
         this.x.fillStyle = this.tileColors.dirtLight;
         this.x.fillRect(x + size * 0.2, y + size * 0.3, size * 0.2, size * 0.2);
         this.x.fillRect(x + size * 0.6, y + size * 0.1, size * 0.2, size * 0.2);
         this.x.fillRect(x + size * 0.1, y + size * 0.7, size * 0.3, size * 0.2);
+
+        this.x.fillStyle = dirtDark;
+        this.x.fillRect(x + size * 0.4, y + size * 0.5, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.7, y + size * 0.8, size * 0.2, size * 0.1);
     },
 
     // Draws a stone tile
     drawStoneTile: function(x, y, size = this.TILE_SIZE) {
+        const stoneDark = '#5A5A5A';
+
         this.x.fillStyle = this.tileColors.stone;
         this.x.fillRect(x, y, size, size);
+
+        // Stone variations and details
         this.x.fillStyle = this.tileColors.stoneLight;
         this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.3, size * 0.3);
         this.x.fillRect(x + size * 0.6, y + size * 0.4, size * 0.3, size * 0.3);
         this.x.fillRect(x + size * 0.3, y + size * 0.7, size * 0.2, size * 0.2);
+
+        this.x.fillStyle = stoneDark;
+        this.x.fillRect(x + size * 0.4, y + size * 0.2, size * 0.2, size * 0.2);
+        this.x.fillRect(x + size * 0.1, y + size * 0.5, size * 0.2, size * 0.2);
     },
 
     // Draws a wood tile
     drawWoodTile: function(x, y, size = this.TILE_SIZE) {
+        const woodDark = '#4A2D1C';
+        const woodLight = '#B87B4F';
+
         this.x.fillStyle = this.tileColors.wood;
         this.x.fillRect(x, y, size, size);
-        this.x.fillStyle = '#a86a32';
+
+        // Wood grain details
+        this.x.fillStyle = woodDark;
         this.x.fillRect(x + size * 0.2, y, size * 0.2, size);
+        this.x.fillRect(x + size * 0.7, y, size * 0.1, size);
+
+        this.x.fillStyle = woodLight;
+        this.x.fillRect(x + size * 0.3, y + size * 0.1, size * 0.1, size * 0.8);
+        this.x.fillRect(x + size * 0.8, y + size * 0.2, size * 0.1, size * 0.6);
     },
 
     // Draws a leaves tile
-    drawLeavesTile: function(x, y) {
+    drawLeavesTile: function(x, y, size = this.TILE_SIZE) {
+        const leavesDark = '#2B6B1F';
+        const leavesLight = '#4CAF50';
+
         this.x.fillStyle = this.tileColors.leaves;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
-        this.x.fillStyle = '#6b8e23';
-        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
-        this.x.fillRect(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillRect(x, y, size, size);
+
+        // Leaf clusters and variations
+        this.x.fillStyle = leavesDark;
+        this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.4, size * 0.4);
+        this.x.fillRect(x + size * 0.5, y + size * 0.5, size * 0.4, size * 0.4);
+
+        this.x.fillStyle = leavesLight;
+        this.x.fillRect(x + size * 0.2, y + size * 0.2, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.6, y + size * 0.6, size * 0.3, size * 0.3);
+
+        // Small individual leaves
+        this.x.fillStyle = this.tileColors.leaves;
+        this.x.fillRect(x + size * 0.05, y + size * 0.7, size * 0.1, size * 0.1);
+        this.x.fillRect(x + size * 0.8, y + size * 0.05, size * 0.1, size * 0.1);
     },
 
     // Draws a birch wood tile
     drawBirchWoodTile: function(x, y, size = this.TILE_SIZE) {
+        const birchWoodDark = '#D4D4C0';
+
         this.x.fillStyle = this.tileColors.birchWood;
         this.x.fillRect(x, y, size, size);
-        this.x.fillStyle = '#000000';
+
+        // Birch bark details
+        this.x.fillStyle = birchWoodDark;
+        this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.8, size * 0.1); // Horizontal line
+        this.x.fillRect(x + size * 0.15, y + size * 0.3, size * 0.7, size * 0.1); // Horizontal line
+        this.x.fillRect(x + size * 0.2, y + size * 0.5, size * 0.6, size * 0.1); // Horizontal line
+        this.x.fillRect(x + size * 0.25, y + size * 0.7, size * 0.5, size * 0.1); // Horizontal line
+
+        this.x.fillStyle = '#000000'; // Dark spots
         this.x.fillRect(x + size * 0.2, y + size * 0.2, size * 0.1, size * 0.1);
         this.x.fillRect(x + size * 0.7, y + size * 0.5, size * 0.1, size * 0.1);
     },
 
     // Draws a birch leaves tile
-    drawBirchLeavesTile: function(x, y) {
+    drawBirchLeavesTile: function(x, y, size = this.TILE_SIZE) {
+        const birchLeavesDark = '#7AA97A';
+        const birchLeavesLight = '#B0E0B0';
+
         this.x.fillStyle = this.tileColors.birchLeaves;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
-        this.x.fillStyle = '#3CB371';
-        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
-        this.x.fillRect(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillRect(x, y, size, size);
+
+        // Leaf clusters and variations
+        this.x.fillStyle = birchLeavesDark;
+        this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.4, size * 0.4);
+        this.x.fillRect(x + size * 0.5, y + size * 0.5, size * 0.4, size * 0.4);
+
+        this.x.fillStyle = birchLeavesLight;
+        this.x.fillRect(x + size * 0.2, y + size * 0.2, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.6, y + size * 0.6, size * 0.3, size * 0.3);
+
+        // Small individual leaves
+        this.x.fillStyle = this.tileColors.birchLeaves;
+        this.x.fillRect(x + size * 0.05, y + size * 0.7, size * 0.1, size * 0.1);
+        this.x.fillRect(x + size * 0.8, y + size * 0.05, size * 0.1, size * 0.1);
     },
 
     // Draws a cherry wood tile
     drawCherryWoodTile: function(x, y, size = this.TILE_SIZE) {
+        const cherryWoodDark = '#7A4F24';
+        const cherryWoodLight = '#C88A5F';
+
         this.x.fillStyle = this.tileColors.cherryWood;
         this.x.fillRect(x, y, size, size);
+
+        // Wood grain details
+        this.x.fillStyle = cherryWoodDark;
+        this.x.fillRect(x + size * 0.2, y, size * 0.2, size);
+        this.x.fillRect(x + size * 0.7, y, size * 0.1, size);
+
+        this.x.fillStyle = cherryWoodLight;
+        this.x.fillRect(x + size * 0.3, y + size * 0.1, size * 0.1, size * 0.8);
+        this.x.fillRect(x + size * 0.8, y + size * 0.2, size * 0.1, size * 0.6);
     },
 
     // Draws a cherry leaves tile
-    drawCherryLeavesTile: function(x, y) {
+    drawCherryLeavesTile: function(x, y, size = this.TILE_SIZE) {
+        const cherryLeavesDark = '#E0A9B3';
+        const cherryLeavesLight = '#FFC0CB';
+
         this.x.fillStyle = this.tileColors.cherryLeaves;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
-        this.x.fillStyle = '#FFB6C1';
-        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.1, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
-        this.x.fillRect(x + this.TILE_SIZE * 0.5, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillRect(x, y, size, size);
+
+        // Leaf clusters and variations
+        this.x.fillStyle = cherryLeavesDark;
+        this.x.fillRect(x + size * 0.1, y + size * 0.1, size * 0.4, size * 0.4);
+        this.x.fillRect(x + size * 0.5, y + size * 0.5, size * 0.4, size * 0.4);
+
+        this.x.fillStyle = cherryLeavesLight;
+        this.x.fillRect(x + size * 0.2, y + size * 0.2, size * 0.3, size * 0.3);
+        this.x.fillRect(x + size * 0.6, y + size * 0.6, size * 0.3, size * 0.3);
+
+        // Small individual leaves/petals
+        this.x.fillStyle = this.tileColors.cherryLeaves;
+        this.x.fillRect(x + size * 0.05, y + size * 0.7, size * 0.1, size * 0.1);
+        this.x.fillRect(x + size * 0.8, y + size * 0.05, size * 0.1, size * 0.1);
     },
 
     // Draws a cactus tile
     drawCactusTile: function(x, y, size = this.TILE_SIZE) {
+        const cactusDark = '#004D00';
+        const cactusLight = '#009900';
+
         this.x.fillStyle = this.tileColors.cactus;
         this.x.fillRect(x, y, size, size);
-        this.x.fillStyle = '#008000';
+
+        // Cactus segments and spines
+        this.x.fillStyle = cactusDark;
         this.x.fillRect(x, y, size * 0.2, size);
         this.x.fillRect(x + size * 0.8, y, size * 0.2, size);
+
+        this.x.fillStyle = cactusLight;
+        this.x.fillRect(x + size * 0.2, y + size * 0.1, size * 0.6, size * 0.1); // Horizontal segment line
+        this.x.fillRect(x + size * 0.2, y + size * 0.4, size * 0.6, size * 0.1); // Horizontal segment line
+        this.x.fillRect(x + size * 0.2, y + size * 0.7, size * 0.6, size * 0.1); // Horizontal segment line
+
+        this.x.fillStyle = '#FFFFFF'; // Spines
+        this.x.fillRect(x + size * 0.25, y + size * 0.15, size * 0.05, size * 0.05);
+        this.x.fillRect(x + size * 0.7, y + size * 0.2, size * 0.05, size * 0.05);
+        this.x.fillRect(x + size * 0.3, y + size * 0.45, size * 0.05, size * 0.05);
+        this.x.fillRect(x + size * 0.65, y + size * 0.55, size * 0.05, size * 0.05);
     },
 
     // Draws a flower stem tile
     drawFlowerStemTile: function(x, y, size = this.TILE_SIZE) {
+        const stemDark = '#388E3C';
+
         this.x.fillStyle = this.tileColors.flowerStem;
         this.x.fillRect(x + size * 0.4, y, size * 0.2, size);
+
+        // Stem variations
+        this.x.fillStyle = stemDark;
+        this.x.fillRect(x + size * 0.45, y, size * 0.1, size); // Darker stripe
+
+        // Leaves on stem
+        this.x.fillStyle = this.tileColors.leaves;
+        this.x.fillRect(x + size * 0.3, y + size * 0.3, size * 0.1, size * 0.2); // Small leaf
+        this.x.fillRect(x + size * 0.6, y + size * 0.6, size * 0.1, size * 0.2); // Small leaf
     },
 
     // Draws a flower petal tile
     drawFlowerPetalTile: function(x, y, size = this.TILE_SIZE) {
+        const petalDark = '#D4B830';
+        const petalCenter = '#e0e0d1';
+
         this.x.fillStyle = this.tileColors.flowerPetal;
         this.x.fillRect(x + size * 0.3, y + size * 0.5, size * 0.4, size * 0.4);
-        this.x.fillStyle = '#e0e0d1';
+
+        // Petal variations
+        this.x.fillStyle = petalDark;
+        this.x.fillRect(x + size * 0.35, y + size * 0.55, size * 0.3, size * 0.3); // Darker inner part
+
+        // Flower center
+        this.x.fillStyle = petalCenter;
         this.x.fillRect(x + size * 0.4, y + size * 0.4, size * 0.2, size * 0.2);
     },
 
     // Draws a lily of the valley stem tile
     drawLilyOfTheValleyStemTile: function(x, y, size = this.TILE_SIZE) {
+        const stemDark = '#5A7A1F';
+
         this.x.fillStyle = this.tileColors.lilyOfTheValleyGreen;
         this.x.fillRect(x + size * 0.45, y, size * 0.1, size);
-        this.x.fillRect(x + size * 0.3, y + size * 0.5, size * 0.4, size * 0.2);
+        this.x.fillRect(x + size * 0.3, y + size * 0.5, size * 0.4, size * 0.2); // Leaf
+
+        // Stem variations
+        this.x.fillStyle = stemDark;
+        this.x.fillRect(x + size * 0.47, y, size * 0.05, size); // Darker stripe
+
+        // Additional leaves
+        this.x.fillRect(x + size * 0.2, y + size * 0.7, size * 0.4, size * 0.2);
     },
 
     // Draws a lily of the valley flower tile
     drawLilyOfTheValleyFlowerTile: function(x, y, size = this.TILE_SIZE) {
+        const flowerShade = '#E0E0E0';
+
         this.x.fillStyle = this.tileColors.lilyOfTheValleyWhite;
         this.x.beginPath();
         this.x.arc(x + size * 0.5, y + size * 0.2, size * 0.15, 0, Math.PI * 2);
@@ -791,43 +952,92 @@ const g = {
         this.x.beginPath();
         this.x.arc(x + size * 0.7, y + size * 0.4, size * 0.15, 0, Math.PI * 2);
         this.x.fill();
+
+        // Add some shading to the flowers
+        this.x.fillStyle = flowerShade;
+        this.x.beginPath();
+        this.x.arc(x + size * 0.55, y + size * 0.25, size * 0.1, 0, Math.PI * 2);
+        this.x.fill();
+        this.x.beginPath();
+        this.x.arc(x + size * 0.35, y + size * 0.45, size * 0.1, 0, Math.PI * 2);
+        this.x.fill();
     },
 
     // Draws a rose stem tile
     drawRoseStemTile: function(x, y, size = this.TILE_SIZE) {
+        const stemDark = '#286B2C';
+
         this.x.fillStyle = this.tileColors.roseStemGreen;
         this.x.fillRect(x + size * 0.45, y, size * 0.1, size);
-        this.x.fillRect(x + size * 0.3, y + size * 0.6, size * 0.4, size * 0.1);
+        this.x.fillRect(x + size * 0.3, y + size * 0.6, size * 0.4, size * 0.1); // Leaf
+
+        // Stem variations
+        this.x.fillStyle = stemDark;
+        this.x.fillRect(x + size * 0.47, y, size * 0.05, size); // Darker stripe
+
+        // Thorns
+        this.x.fillStyle = '#A0A0A0';
+        this.x.fillRect(x + size * 0.4, y + size * 0.4, size * 0.05, size * 0.05);
+        this.x.fillRect(x + size * 0.55, y + size * 0.7, size * 0.05, size * 0.05);
     },
 
     // Draws a rose flower tile
     drawRoseFlowerTile: function(x, y, size = this.TILE_SIZE) {
+        const roseDark = '#B71C1C';
+        const roseCenter = '#FFEB3B';
+
         this.x.fillStyle = this.tileColors.roseRed;
         this.x.beginPath();
         this.x.arc(x + size * 0.5, y + size * 0.3, size * 0.3, 0, Math.PI * 2);
         this.x.fill();
-        this.x.fillStyle = '#A52A2A';
+
+        // Petal layers
+        this.x.fillStyle = roseDark;
         this.x.beginPath();
-        this.x.arc(x + size * 0.5, y + size * 0.3, size * 0.1, 0, Math.PI * 2);
+        this.x.arc(x + size * 0.5, y + size * 0.3, size * 0.2, 0, Math.PI * 2);
+        this.x.fill();
+
+        this.x.fillStyle = this.tileColors.roseRed;
+        this.x.beginPath();
+        this.x.arc(x + size * 0.5, y + size * 0.3, size * 0.15, 0, Math.PI * 2);
+        this.x.fill();
+
+        // Center of the rose
+        this.x.fillStyle = roseCenter;
+        this.x.beginPath();
+        this.x.arc(x + size * 0.5, y + size * 0.3, size * 0.05, 0, Math.PI * 2);
         this.x.fill();
     },
 
     // Draws a water tile
-    drawWaterTile: function(x, y) {
+    drawWaterTile: function(x, y, size = this.TILE_SIZE) {
+        const waterDark = 'rgba(46, 134, 222, 0.7)';
+        const waterLight = 'rgba(93, 173, 226, 0.7)';
+
         this.x.fillStyle = this.tileColors.water;
-        this.x.fillRect(x, y, this.TILE_SIZE, this.TILE_SIZE);
+        this.x.fillRect(x, y, size, size);
+
+        // Water ripples/highlights
         this.x.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        this.x.fillRect(x + this.TILE_SIZE * 0.1, y + this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.8, this.TILE_SIZE * 0.1);
-        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.6, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + size * 0.1, y + size * 0.2, size * 0.8, size * 0.1);
+        this.x.fillRect(x + size * 0.3, y + size * 0.5, size * 0.6, size * 0.1);
+
+        // Water shadows/depth
         this.x.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        this.x.fillRect(x + this.TILE_SIZE * 0.2, y + this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.7, this.TILE_SIZE * 0.1);
-        this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.7, this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.1);
+        this.x.fillRect(x + size * 0.2, y + size * 0.4, size * 0.7, size * 0.1);
+        this.x.fillRect(x + size * 0.4, y + size * 0.7, size * 0.5, size * 0.1);
+
+        // Deeper water effect
+        this.x.fillStyle = waterDark;
+        this.x.fillRect(x, y + size * 0.8, size, size * 0.2);
+        this.x.fillStyle = waterLight;
+        this.x.fillRect(x, y, size, size * 0.1); // Top surface highlight
     },
 
     // Draws a bird
     drawBird: function(bird) {
         this.x.save();
-        const birdCenterX = bird.x + bird.width / 2;
+        const birdCenterX = bird.x - this.camera.x + bird.width / 2;
 
         if (bird.direction === 'left') {
             this.x.translate(birdCenterX, 0);
@@ -836,33 +1046,60 @@ const g = {
         }
         
         const pSize = bird.width / 4;
-        this.x.fillStyle = '#4a4a4a';
+        const bodyColor = '#4a4a4a';
+        const bodyLight = '#6a6a6a';
+        const wingColor = '#3a3a3a';
+        const beakColor = '#FFD700';
+        const eyeWhite = 'white';
+        const eyePupil = 'black';
 
-        this.x.fillRect(bird.x + pSize, bird.y + pSize, pSize * 2, pSize);
-        this.x.fillRect(bird.x, bird.y + pSize * 2, pSize * 3, pSize);
+        // Body
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(bird.x - this.camera.x + pSize, bird.y - this.camera.y + pSize, pSize * 2, pSize);
+        this.x.fillRect(bird.x - this.camera.x, bird.y - this.camera.y + pSize * 2, pSize * 3, pSize);
+        this.x.fillStyle = bodyLight;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 1.5, bird.y - this.camera.y + pSize * 1.5, pSize * 1.5, pSize * 0.5); // Body highlight
 
-        this.x.fillRect(bird.x + pSize * 3, bird.y, pSize, pSize);
+        // Head
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 3, bird.y - this.camera.y, pSize, pSize);
 
-        this.x.fillStyle = '#6a6a6a';
-        this.x.fillRect(bird.x, bird.y, pSize * 2, pSize);
+        // Wing
+        this.x.fillStyle = wingColor;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 0.5, bird.y - this.camera.y + pSize * 0.5, pSize * 2, pSize * 0.5); // Wing
 
-        this.x.fillStyle = '#FFD700';
-        this.x.fillRect(bird.x + pSize * 4, bird.y + pSize, pSize, pSize / 2);
+        // Beak
+        this.x.fillStyle = beakColor;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 4, bird.y - this.camera.y + pSize, pSize, pSize / 2);
 
-        this.x.fillStyle = 'white';
-        this.x.fillRect(bird.x + pSize * 3.5, bird.y + pSize * 0.5, pSize * 0.5, pSize * 0.5);
-        this.x.fillStyle = 'black';
-        this.x.fillRect(bird.x + pSize * 3.7, bird.y + pSize * 0.7, pSize * 0.2, pSize * 0.2);
+        // Eye
+        this.x.fillStyle = eyeWhite;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 3.5, bird.y - this.camera.y + pSize * 0.5, pSize * 0.5, pSize * 0.5);
+        this.x.fillStyle = eyePupil;
+        this.x.fillRect(bird.x - this.camera.x + pSize * 3.7, bird.y - this.camera.y + pSize * 0.7, pSize * 0.2, pSize * 0.2);
 
         this.x.restore();
     },
 
     // Draws a sapling tile
-    drawSaplingTile: function(x, y) {
+    drawSaplingTile: function(x, y, size = this.TILE_SIZE) {
+        const saplingDark = '#5A3B20';
+        const leavesLight = '#4CAF50';
+
         this.x.fillStyle = this.tileColors.sapling;
-        this.x.fillRect(x + this.TILE_SIZE * 0.4, y + this.TILE_SIZE * 0.5, this.TILE_SIZE * 0.2, this.TILE_SIZE * 0.5);
+        this.x.fillRect(x + size * 0.4, y + size * 0.5, size * 0.2, size * 0.5); // Stem
+
+        // Stem variations
+        this.x.fillStyle = saplingDark;
+        this.x.fillRect(x + size * 0.45, y + size * 0.5, size * 0.1, size * 0.5); // Darker stripe on stem
+
+        // Leaves
         this.x.fillStyle = this.tileColors.leaves;
-        this.x.fillRect(x + this.TILE_SIZE * 0.3, y + this.TILE_SIZE * 0.3, this.TILE_SIZE * 0.4, this.TILE_SIZE * 0.4);
+        this.x.fillRect(x + size * 0.3, y + size * 0.3, size * 0.4, size * 0.4);
+
+        // Leaf variations
+        this.x.fillStyle = leavesLight;
+        this.x.fillRect(x + size * 0.35, y + size * 0.35, size * 0.3, size * 0.3);
     },
 
     // Draws the entire world
@@ -992,16 +1229,33 @@ const g = {
         this.x.fillStyle = skyGradient;
         this.x.fillRect(0, 0, this.c.width, this.c.height);
 
+        // Draw parallax background layers
+        this.backgroundLayers.forEach(layer => {
+            this.x.fillStyle = layer.color;
+            const layerX = - (this.camera.x * layer.speed) % this.c.width;
+            this.x.fillRect(layerX, 0, this.c.width, this.c.height);
+            this.x.fillRect(layerX + this.c.width, 0, this.c.width, this.c.height);
+        });
+
         const sunMoonX = this.c.width / 2 + Math.cos(this.celestialBody.angle) * (this.c.width / 2 + 30);
         const sunMoonY = this.c.height * 0.8 + Math.sin(this.celestialBody.angle) * (this.c.height * 0.7);
         const sunMoonRadius = 30;
         
         if (this.isNight) {
-            this.x.fillStyle = '#FAFAF0';
+            this.x.fillStyle = '#FAFAF0'; // Moon color
             this.x.shadowBlur = 20;
             this.x.shadowColor = '#FAFAF0';
+            // Add some craters to the moon
+            this.x.beginPath();
+            this.x.arc(sunMoonX - 10, sunMoonY - 5, 5, 0, Math.PI * 2);
+            this.x.fillStyle = '#E0E0D0';
+            this.x.fill();
+            this.x.beginPath();
+            this.x.arc(sunMoonX + 10, sunMoonY + 8, 7, 0, Math.PI * 2);
+            this.x.fillStyle = '#E0E0D0';
+            this.x.fill();
         } else {
-            this.x.fillStyle = '#F2A9A9';
+            this.x.fillStyle = '#F2A9A9'; // Sun color
             this.x.shadowBlur = 30;
             this.x.shadowColor = 'rgba(242, 169, 169, 0.8)';
         }
@@ -1023,6 +1277,10 @@ const g = {
         });
 
         if (this.isNight) {
+            // Subtle night tint overlay
+            this.x.fillStyle = 'rgba(0, 0, 50, 0.2)'; // Dark blue tint
+            this.x.fillRect(0, 0, this.c.width, this.c.height);
+
             if (Math.random() < 0.01) {
                 this.shootingStars.push({
                     x: Math.random() * this.c.width,
@@ -1137,25 +1395,43 @@ const g = {
         const pSize = this.TILE_SIZE / 5;
 
         const skin = '#f2d3ab';
+        const skinDark = '#d4b89a';
         const hair = '#5d4037';
+        const hairLight = '#7b5e57';
         const shirt = '#a9c8b6';
+        const shirtDark = '#8caba0';
         const pants = '#6a6a6a';
+        const pantsDark = '#525252';
         const shoes = '#4a4a4a';
+        const shoesDark = '#323232';
 
+        // Head
         this.x.fillStyle = skin;
         this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 3, pSize * 4);
+        this.x.fillStyle = skinDark;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 3, this.player.y - this.camera.y + pSize, pSize, pSize * 2); // Shadow on face
+
         this.x.fillStyle = hair;
         this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y, pSize * 4, pSize * 2);
         this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
-        this.x.fillStyle = '#2E2E2E';
-        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
+        this.x.fillStyle = hairLight;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize, pSize, pSize); // Hair highlight
 
+        this.x.fillStyle = '#2E2E2E'; // Eyes
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 2, pSize, pSize);
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 3, this.player.y - this.camera.y + pSize * 2, pSize * 0.5, pSize * 0.5); // Mouth
+
+        // Body
         this.x.fillStyle = shirt;
         this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 4, pSize * 3, pSize * 3);
+        this.x.fillStyle = shirtDark;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 4, pSize, pSize * 3); // Shirt shadow
+        this.x.fillStyle = skin; // Arms
         this.x.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 4, pSize, pSize * 2);
-        this.x.fillStyle = skin;
-        this.x.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 6, pSize, pSize);
+        this.x.fillStyle = skinDark;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 4, this.player.y - this.camera.y + pSize * 5, pSize, pSize); // Arm shadow
 
+        // Legs
         this.x.fillStyle = pants;
         if (this.player.isWalking) {
             if (this.player.walkFrame === 0) {
@@ -1169,10 +1445,15 @@ const g = {
             this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
             this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2);
         }
+        this.x.fillStyle = pantsDark;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 7, pSize, pSize * 2); // Leg shadow
 
+        // Shoes
         this.x.fillStyle = shoes;
         this.x.fillRect(this.player.x - this.camera.x + pSize, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
         this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 9, pSize, pSize);
+        this.x.fillStyle = shoesDark;
+        this.x.fillRect(this.player.x - this.camera.x + pSize * 2, this.player.y - this.camera.y + pSize * 9, pSize, pSize); // Shoe shadow
 
         this.x.restore();
     },
@@ -1208,25 +1489,38 @@ const g = {
         const pSize = this.TILE_SIZE / 5;
 
         const bodyColor = '#d3c5b3';
+        const bodyDark = '#b8a99a';
         const earColor = '#e0d6c7';
+        const earInner = '#f2e8dc';
         const eyeColor = '#2E2E2E';
         const tailColor = '#FAFAF0';
 
+        // Body
         this.x.fillStyle = bodyColor;
         this.x.fillRect(bunny.x - this.camera.x + pSize, bunny.y - this.camera.y + pSize * 4, pSize * 3, pSize * 2);
         this.x.fillRect(bunny.x - this.camera.x + pSize * 2, bunny.y - this.camera.y + pSize * 3, pSize * 2, pSize);
+        this.x.fillStyle = bodyDark;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y + pSize * 4, pSize, pSize * 2);
 
+        // Tail
         this.x.fillStyle = tailColor;
         this.x.fillRect(bunny.x - this.camera.x, bunny.y - this.camera.y + pSize * 4, pSize, pSize);
 
+        // Head
         this.x.fillStyle = bodyColor;
         this.x.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y + pSize * 2, pSize * 2, pSize * 2);
+        this.x.fillStyle = bodyDark;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize * 2, pSize, pSize); // Head shadow
 
+        // Ears
         this.x.fillStyle = earColor;
         this.x.fillRect(bunny.x - this.camera.x + pSize * 3, bunny.y - this.camera.y, pSize, pSize * 3);
+        this.x.fillStyle = earInner;
+        this.x.fillRect(bunny.x - this.camera.x + pSize * 3.2, bunny.y - this.camera.y + pSize * 0.5, pSize * 0.6, pSize * 2);
         this.x.fillStyle = bodyColor;
         this.x.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize, pSize, pSize * 2);
 
+        // Eye
         this.x.fillStyle = eyeColor;
         this.x.fillRect(bunny.x - this.camera.x + pSize * 4, bunny.y - this.camera.y + pSize * 2, pSize, pSize);
 
@@ -1247,25 +1541,39 @@ const g = {
         const pSize = this.TILE_SIZE / 5;
 
         const bodyColor = '#8B5A2B';
+        const bodyDark = '#6F4722';
         const bellyColor = '#A97B4F';
         const eyeColor = '#2E2E2E';
+        const tailColor = '#A97B4F';
 
+        // Body
         this.x.fillStyle = bodyColor;
         this.x.fillRect(squirrel.x - this.camera.x + pSize, squirrel.y - this.camera.y + pSize * 3, pSize * 3, pSize * 3);
         this.x.fillStyle = bellyColor;
         this.x.fillRect(squirrel.x - this.camera.x + pSize * 2, squirrel.y - this.camera.y + pSize * 4, pSize, pSize * 2);
+        this.x.fillStyle = bodyDark;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 3, squirrel.y - this.camera.y + pSize * 3, pSize, pSize * 3); // Body shadow
 
+        // Head
         this.x.fillStyle = bodyColor;
         this.x.fillRect(squirrel.x - this.camera.x + pSize * 3, squirrel.y - this.camera.y + pSize * 2, pSize * 2, pSize * 2);
-
         this.x.fillRect(squirrel.x - this.camera.x + pSize * 4, squirrel.y - this.camera.y + pSize, pSize, pSize);
+        this.x.fillStyle = bodyDark;
+        this.x.fillRect(squirrel.x - this.camera.x + pSize * 4, squirrel.y - this.camera.y + pSize * 2, pSize, pSize); // Head shadow
 
+        // Arms/Legs
         this.x.fillStyle = bodyColor;
         this.x.fillRect(squirrel.x - this.camera.x, squirrel.y - this.camera.y + pSize * 4, pSize * 2, pSize);
         this.x.fillRect(squirrel.x - this.camera.x + pSize, squirrel.y - this.camera.y + pSize * 3, pSize, pSize);
 
+        // Eye
         this.x.fillStyle = eyeColor;
         this.x.fillRect(squirrel.x - this.camera.x + pSize * 4, squirrel.y - this.camera.y + pSize * 3, pSize, pSize);
+
+        // Tail
+        this.x.fillStyle = tailColor;
+        this.x.fillRect(squirrel.x - this.camera.x - pSize, squirrel.y - this.camera.y + pSize * 2, pSize, pSize * 3); // Tail base
+        this.x.fillRect(squirrel.x - this.camera.x - pSize * 2, squirrel.y - this.camera.y + pSize * 3, pSize, pSize * 2); // Tail tip
 
         this.x.restore();
     },
@@ -1284,17 +1592,24 @@ const g = {
         const pSize = fish.width / 5;
 
         const bodyColor = '#4CAF50';
+        const bodyLight = '#66BB6A';
         const finColor = '#8BC34A';
         const eyeColor = '#2E2E2E';
 
+        // Body
         this.x.fillStyle = bodyColor;
         this.x.fillRect(fish.x - this.camera.x + pSize, fish.y - this.camera.y + pSize, pSize * 3, pSize * 2);
         this.x.fillRect(fish.x - this.camera.x + pSize * 4, fish.y - this.camera.y + pSize * 1.5, pSize, pSize);
+        this.x.fillStyle = bodyLight;
+        this.x.fillRect(fish.x - this.camera.x + pSize * 1.5, fish.y - this.camera.y + pSize * 1.5, pSize * 2, pSize); // Body highlight
 
+        // Fins
         this.x.fillStyle = finColor;
-        this.x.fillRect(fish.x - this.camera.x, fish.y - this.camera.y + pSize * 1.5, pSize, pSize);
-        this.x.fillRect(fish.x - this.camera.x + pSize * 0.5, fish.y - this.camera.y + pSize * 0.5, pSize * 0.5, pSize * 2);
+        this.x.fillRect(fish.x - this.camera.x, fish.y - this.camera.y + pSize * 1.5, pSize, pSize); // Tail fin
+        this.x.fillRect(fish.x - this.camera.x + pSize * 0.5, fish.y - this.camera.y + pSize * 0.5, pSize * 0.5, pSize * 2); // Top fin
+        this.x.fillRect(fish.x - this.camera.x + pSize * 2, fish.y - this.camera.y + pSize * 3, pSize, pSize * 0.5); // Bottom fin
 
+        // Eye
         this.x.fillStyle = eyeColor;
         this.x.fillRect(fish.x - this.camera.x + pSize * 3, fish.y - this.camera.y + pSize * 1, pSize * 0.5, pSize * 0.5);
 
@@ -1313,14 +1628,33 @@ const g = {
         }
 
         const pSize = butterfly.width / 4;
+        const bodyColor = '#4A4A4A'; // Darker body
+        const antennaColor = '#2E2E2E';
+
+        // Body
+        this.x.fillStyle = bodyColor;
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.5, butterfly.y - this.camera.y + pSize * 1.5, pSize, pSize); // Body segment
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.7, butterfly.y - this.camera.y + pSize * 1, pSize * 0.6, pSize * 0.5); // Head
+
+        // Wings
         this.x.fillStyle = butterfly.color;
+        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize, pSize, pSize); // Top-left wing
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize, pSize, pSize); // Top-right wing
+        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize * 2, pSize, pSize); // Bottom-left wing
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize * 2, pSize, pSize); // Bottom-right wing
 
-        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.5, butterfly.y - this.camera.y + pSize * 1.5, pSize, pSize);
+        // Wing details (darker shade of wing color)
+        const wingDetailColor = this.x.fillStyle.replace('#', '#'); // Simple way to get a slightly darker shade
+        this.x.fillStyle = wingDetailColor + '80'; // Add some transparency
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.2, butterfly.y - this.camera.y + pSize * 1.2, pSize * 0.6, pSize * 0.6);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2.2, butterfly.y - this.camera.y + pSize * 1.2, pSize * 0.6, pSize * 0.6);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.2, butterfly.y - this.camera.y + pSize * 2.2, pSize * 0.6, pSize * 0.6);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2.2, butterfly.y - this.camera.y + pSize * 2.2, pSize * 0.6, pSize * 0.6);
 
-        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize, pSize, pSize);
-        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize, pSize, pSize);
-        this.x.fillRect(butterfly.x - this.camera.x + pSize, butterfly.y - this.camera.y + pSize * 2, pSize, pSize);
-        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2, butterfly.y - this.camera.y + pSize * 2, pSize, pSize);
+        // Antennas
+        this.x.fillStyle = antennaColor;
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 1.8, butterfly.y - this.camera.y + pSize * 0.5, pSize * 0.2, pSize * 0.5);
+        this.x.fillRect(butterfly.x - this.camera.x + pSize * 2.2, butterfly.y - this.camera.y + pSize * 0.5, pSize * 0.2, pSize * 0.5);
 
         this.x.restore();
     },
@@ -1328,10 +1662,22 @@ const g = {
     // Draws a firefly
     drawFirefly: function(firefly) {
         this.x.save();
-        this.x.globalAlpha = firefly.alpha * (0.5 + 0.5 * Math.sin(firefly.flicker));
-        this.x.fillStyle = '#FFFF00';
+        // Calculate flicker effect
+        const flickerAlpha = 0.7 + 0.3 * Math.sin(firefly.flicker); // Flicker between 70% and 100% opacity
+        this.x.globalAlpha = firefly.alpha * flickerAlpha;
+
+        // Draw the main body of the firefly
+        this.x.fillStyle = '#FFD700'; // Gold color for the body
         this.x.fillRect(firefly.x - this.camera.x, firefly.y - this.camera.y, firefly.width, firefly.height);
-        this.x.globalAlpha = 1;
+
+        // Draw a glowing effect around the firefly
+        this.x.shadowColor = '#FFFF00'; // Yellow glow
+        this.x.shadowBlur = firefly.width * 1.5; // Larger blur for a softer glow
+        this.x.fillStyle = '#FFFFE0'; // Lighter yellow for the core glow
+        this.x.fillRect(firefly.x - this.camera.x + firefly.width * 0.25, firefly.y - this.camera.y + firefly.height * 0.25, firefly.width * 0.5, firefly.height * 0.5);
+        
+        this.x.globalAlpha = 1; // Reset alpha
+        this.x.shadowBlur = 0; // Reset shadow blur
         this.x.restore();
     },
 
@@ -2130,24 +2476,35 @@ const g = {
         this.inventory.items.forEach((item, index) => {
             const slotX = startX + index * (slotSize + padding);
             
-            if (index === this.inventory.selectedSlot) {
-                this.x.shadowColor = 'rgba(242, 169, 169, 0.8)';
-                this.x.shadowBlur = 15;
-            }
-
-            this.x.fillStyle = 'rgba(46, 46, 46, 0.6)';
+            // Draw slot background
+            this.x.fillStyle = 'rgba(46, 46, 46, 0.7)'; // Slightly darker background
             this.x.fillRect(slotX, startY, slotSize, slotSize);
-            this.x.shadowBlur = 0;
 
+            // Draw slot border
+            this.x.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            this.x.lineWidth = 2;
+            this.x.strokeRect(slotX, startY, slotSize, slotSize);
+
+            // Highlight selected slot
             if (index === this.inventory.selectedSlot) {
+                this.x.shadowColor = '#F2A9A9'; // Pink glow
+                this.x.shadowBlur = 10;
                 this.x.strokeStyle = '#F2A9A9';
                 this.x.lineWidth = 3;
-                this.x.strokeRect(slotX, startY, slotSize, slotSize);
+                this.x.strokeRect(slotX - 1, startY - 1, slotSize + 2, slotSize + 2); // Slightly larger stroke for highlight
+                this.x.shadowBlur = 0; // Reset shadow after drawing selected slot
             }
 
             this.drawItemIcon(item, slotX, startY, slotSize);
 
-
+            // Draw item amount if applicable
+            if (item.amount !== undefined && item.amount > 0) {
+                this.x.fillStyle = 'white';
+                this.x.font = '10px "Press Start 2P"';
+                this.x.textAlign = 'right';
+                this.x.textBaseline = 'bottom';
+                this.x.fillText(item.amount, slotX + slotSize - 2, startY + slotSize - 2);
+            }
         });
     },
 
@@ -2206,12 +2563,23 @@ const g = {
         this.mx.clearRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
         this.mx.drawImage(this.minimapBuffer, 0, 0, minimapDisplayWidth, minimapDisplayHeight);
 
+        // Draw a border around the minimap
+        this.mx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        this.mx.lineWidth = 2;
+        this.mx.strokeRect(0, 0, minimapDisplayWidth, minimapDisplayHeight);
+
         // Player is always in the center of the zoomed-in minimap
         const playerMinimapX = minimapDisplayWidth / 2;
         const playerMinimapY = minimapDisplayHeight / 2;
 
-        this.mx.fillStyle = 'white';
-        this.mx.fillRect(playerMinimapX - 2, playerMinimapY - 2, 4, 4);
+        // Draw a more distinct player indicator (e.g., a small crosshair or circle)
+        this.mx.fillStyle = '#F2A9A9'; // Pink color for player
+        this.mx.beginPath();
+        this.mx.arc(playerMinimapX, playerMinimapY, 3, 0, Math.PI * 2); // Small circle
+        this.mx.fill();
+        this.mx.strokeStyle = 'white';
+        this.mx.lineWidth = 1;
+        this.mx.stroke();
     },
 
     destroyTree: function(x, y, treeParts, woodType) {
