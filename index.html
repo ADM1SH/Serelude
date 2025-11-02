@@ -3,16 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Fetches the pixelated font used for the text -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
   <title>Two-Month Anniversary Animation</title>
+  <!-- Links the stylesheet to give our page some style -->
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- The main canvas where the animation and game will be drawn -->
   <canvas id="animationCanvas"></canvas>
   
-
+  <!-- A small box in the corner that explains the controls -->
   <div id="controls-note">
     <h3>Controls</h3>
     <ul>
@@ -21,15 +24,22 @@
         <li><strong>1 - 6</strong>: Select Item</li>
         <li><strong>Mouse Click</strong>: Mine / Place</li>
         <li><strong>T</strong>: for a surprise...</li>
+        <!-- Buttons to save the current world or create a new one -->
         <li id="save-btn" class="note-button">Save World</li>
         <li id="reset-btn" class="note-button">New World</li>
     </ul>
   </div>
+  
+  <!-- A smaller canvas for the minimap -->
   <canvas id="minimap-canvas"></canvas>
+  
+  <!-- A layer that sits on top of the canvas to display messages -->
   <div id="overlay">
     <h1 id="message1">Happy two months, my love</h1>
     <h2 id="message2">I love you</h2>
   </div>
+  
+  <!-- The main JavaScript file that runs the game -->
   <script src="js/script.js"></script>
 </body>
 </html>
