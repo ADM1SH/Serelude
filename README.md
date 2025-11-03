@@ -5,11 +5,11 @@ What began as a prelude now blooms softly in light
 a serenade that lingers, looping endlessly,
 for love that grows in silence and glows in rhythm. 
 
-This project is a two-month anniversary web animation. It is a static site built with HTML, CSS, and JavaScript, designed to be hosted on GitHub Pages. It features an interactive 2D world with a controllable character, a dynamic day/night cycle, and other interactive elements. All visuals are procedurally drawn and animated using the HTML Canvas API.
-This has since evolved into a small sandbox game where you can explore, build, and save your creations in a persistent world.
-## Interactive Features
+This project, initially conceived as a two-month anniversary web animation, has evolved into an interactive 2D sandbox game. Built with HTML, CSS, and JavaScript, it offers a procedurally generated world where players can explore, build, and save their creations. The game features a controllable character, a dynamic day/night cycle, and all visuals are dynamically rendered using the HTML Canvas API. It's designed as a static site, easily hostable on platforms like GitHub Pages.
 
-You can interact with the animation using the following keyboard and mouse controls:
+## Gameplay and Controls
+
+You can interact with the game using the following keyboard and mouse controls:
 
 ### Key Presses
 *   **'a' / 'd'**: Move the character left and right.
@@ -27,3 +27,11 @@ You can interact with the animation using the following keyboard and mouse contr
 *   **Save / New World**: Use the buttons in the controls panel to save your current world to your browser, or to start a fresh new world.
 
 A **minimap** in the top-right corner will help you navigate the world and see your creations from a distance.
+
+## Technologies Used
+
+*   **HTML5**: For structuring the web page.
+*   **CSS3**: For styling and layout.
+*   **JavaScript (ES6+)**: For game logic, interactivity, and dynamic rendering.
+*   **HTML Canvas API**: For all 2D graphics rendering.
+*   **Google Fonts**: For custom typography ("Press Start 2P").
