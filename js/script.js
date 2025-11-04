@@ -109,7 +109,7 @@ const g = {
     // 'startButton' is a reference to the button players click to begin the game.
     startButton: null,
     // 'gameSpeed' is a master control for how fast everything in the game moves and animates.
-    gameSpeed: 0.35,
+    gameSpeed: 0.2,
 
     // --- Camera System ---
     camera: {
@@ -329,43 +329,61 @@ const g = {
                 worldModified = true;
             }
 
-            // If the clicked spot is empty (air), the player can try to place a block!
-            if (clickedTile === 0) {
-                if (selectedItem.type === 'stone') {
-                    this.setTile(tileX, tileY, 3); // Place a stone block.
+            // New placement logic for blocks and items
+            const placableBlockTypes = ['stone', 'wood', 'dirt', 'birchWood', 'cherryWood', 'cactus'];
+            const placableFlowerTypes = ['lily', 'lilyOfTheValley', 'rose', 'sapling'];
+
+            if (placableBlockTypes.includes(selectedItem.type)) {
+                let targetTileX = tileX;
+                let targetTileY = tileY;
+
+                if (this.isPlacableSurface(clickedTile)) {
+                    // If clicked on a placable surface, try to place on top
+                    targetTileY = tileY - 1;
+                } else if (clickedTile !== 0) {
+                    // If clicked on a non-placable, non-empty tile (like a flower or sapling), replace it
+                    targetTileY = tileY;
+                }
+                // If clickedTile is 0 (empty), targetTileY remains tileY
+
+                // Check if the target placement is within world bounds and not already occupied by a solid block
+                if (this.getTile(targetTileX, targetTileY) === 0 || !this.isSolid(this.getTile(targetTileX, targetTileY))) {
+                    let tileToPlace = 0;
+                    switch (selectedItem.type) {
+                        case 'stone': tileToPlace = 3; break;
+                        case 'wood': tileToPlace = 4; break;
+                        case 'dirt': tileToPlace = 2; break;
+                        case 'birchWood': tileToPlace = 14; break;
+                        case 'cherryWood': tileToPlace = 16; break;
+                        case 'cactus': tileToPlace = 18; break;
+                    }
+                    this.setTile(targetTileX, targetTileY, tileToPlace);
                     worldModified = true;
-                } else if (selectedItem.type === 'wood') {
-                    this.setTile(tileX, tileY, 4); // Place a wood block.
-                    worldModified = true;
-                } else if (selectedItem.type === 'dirt') {
-                    this.setTile(tileX, tileY, 2); // Place a dirt block.
-                    worldModified = true;
-                } else if (selectedItem.type === 'lily') {
-                    // If there's solid ground below, place a lily (stem and petals).
-                    if (this.getTile(tileX, tileY + 1) === 1) {
+                }
+            } else if (placableFlowerTypes.includes(selectedItem.type)) {
+                // Existing flower/sapling placement logic, now under a more general condition
+                if (selectedItem.type === 'lily') {
+                    if (this.getTile(tileX, tileY + 1) === 1) { // Requires solid ground below
                         this.setTile(tileX, tileY, 6);
                         this.setTile(tileX, tileY - 1, 7);
                         worldModified = true;
                     }
                 } else if (selectedItem.type === 'lilyOfTheValley') {
-                    // If there's solid ground below, place a lily of the valley.
-                    if (this.getTile(tileX, tileY + 1) === 1) {
+                    if (this.getTile(tileX, tileY + 1) === 1) { // Requires solid ground below
                         this.setTile(tileX, tileY, 10);
                         this.setTile(tileX, tileY - 1, 11);
                         worldModified = true;
                     }
                 } else if (selectedItem.type === 'rose') {
-                    // If there's solid ground below, place a rose.
-                    if (this.getTile(tileX, tileY + 1) === 1) {
+                    if (this.getTile(tileX, tileY + 1) === 1) { // Requires solid ground below
                         this.setTile(tileX, tileY, 12);
                         this.setTile(tileX, tileY - 1, 13);
                         worldModified = true;
                     }
                 } else if (selectedItem.type === 'sapling') {
-                    // If there's solid ground below, plant a sapling and schedule it to grow into a tree later!
-                    if (this.getTile(tileX, tileY + 1) === 1) {
+                    if (this.getTile(tileX, tileY + 1) === 1) { // Requires solid ground below
                         this.setTile(tileX, tileY, 8);
-                        setTimeout(() => this.growTree(tileX, tileY, selectedItem.growsInto), 30000); // It'll grow in 30 seconds!
+                        setTimeout(() => this.growTree(tileX, tileY, selectedItem.growsInto), 30000);
                         worldModified = true;
                     }
                 }
@@ -762,8 +780,14 @@ const g = {
 
     // This little helper function tells us if a tile is solid, meaning players and creatures can stand on it.
     isSolid: function(tileType) {
-        // Our grass (1), dirt (2), and stone (3) tiles are all solid!
+        // Our grass (1), dirt (2), stone (3), and all wood types (4, 14, 16) tiles are all solid!
         return tileType === 1 || tileType === 2 || tileType === 3;
+    },
+
+    // This helper function determines if a tile can have another block placed on it.
+    isPlacableSurface: function(tileType) {
+        // Solid blocks (grass, dirt, stone) and tree wood types (oak, birch, cherry) can have blocks placed on them.
+        return tileType === 1 || tileType === 2 || tileType === 3 || tileType === 4 || tileType === 14 || tileType === 16;
     },
 
     // This function draws a beautiful, detailed grass tile at a specific spot on our canvas.
@@ -1207,45 +1231,35 @@ const g = {
 
     // This function is responsible for drawing our entire game world, tile by tile.
     drawWorld: function() {
-        // We calculate which part of the world is currently visible on the screen.
         const startPixelX = this.camera.x;
         const endPixelX = this.camera.x + this.c.width;
         const startPixelY = this.camera.y;
         const endPixelY = this.camera.y + this.c.height;
 
-        // We convert those pixel coordinates into tile coordinates.
         const startTileX = Math.floor(startPixelX / this.TILE_SIZE);
         const endTileX = Math.ceil(endPixelX / this.TILE_SIZE);
         const startTileY = Math.floor(startPixelY / this.TILE_SIZE);
         const endTileY = Math.ceil(endPixelY / this.TILE_SIZE);
 
-        // Now, we loop through all the visible tiles and draw each one according to its type.
         for (let y = startTileY; y < endTileY; y++) {
             for (let x = startTileX; x < endTileX; x++) {
-                const tileType = this.getTile(x, y); // What kind of tile is this?
-                const tileX = x * this.TILE_SIZE - this.camera.x; // Calculate its screen X position.
-                const tileY = y * this.TILE_SIZE - this.camera.y; // Calculate its screen Y position.
+                const tileType = this.getTile(x, y);
+                const tileX = x * this.TILE_SIZE - this.camera.x;
+                const tileY = y * this.TILE_SIZE - this.camera.y;
 
-                // Based on the tile type, we call the appropriate drawing function.
                 switch (tileType) {
-                    case 1: this.drawGrassTile(tileX, tileY); break; // Green grass!
-                    case 2: this.drawDirtTile(tileX, tileY); break; // Brown dirt!
-                    case 3: this.drawStoneTile(tileX, tileY); break; // Gray stone!
-                    case 4: this.drawWoodTile(tileX, tileY); break; // Sturdy wood!
-                    case 5: this.drawLeavesTile(tileX, tileY); break; // Green leaves!
-                    case 6: this.drawFlowerStemTile(tileX, tileY); break; // Flower stem!
-                    case 7: this.drawFlowerPetalTile(tileX, tileY); break; // Flower petals!
-                    case 8: this.drawSaplingTile(tileX, tileY); break; // A tiny sapling!
-                    case 9: this.drawWaterTile(tileX, tileY); break; // Shimmering water!
-                    case 10: this.drawLilyOfTheValleyStemTile(tileX, tileY); break; // Lily of the valley stem!
-                    case 11: this.drawLilyOfTheValleyFlowerTile(tileX, tileY); break; // Lily of the valley flower!
-                    case 12: this.drawRoseStemTile(tileX, tileY); break; // Rose stem!
-                    case 13: this.drawRoseFlowerTile(tileX, tileY); break; // Rose flower!
-                    case 14: this.drawBirchWoodTile(tileX, tileY); break; // Birch wood!
-                    case 15: this.drawBirchLeavesTile(tileX, tileY); break; // Birch leaves!
-                    case 16: this.drawCherryWoodTile(tileX, tileY); break; // Cherry wood!
-                    case 17: this.drawCherryLeavesTile(tileX, tileY); break; // Cherry leaves!
-                    case 18: this.drawCactusTile(tileX, tileY); break; // Spiky cactus!
+                    case 1: this.drawGrassTile(tileX, tileY); break;
+                    case 2: this.drawDirtTile(tileX, tileY); break;
+                    case 3: this.drawStoneTile(tileX, tileY); break;
+                    case 6: this.drawFlowerStemTile(tileX, tileY); break;
+                    case 7: this.drawFlowerPetalTile(tileX, tileY); break;
+                    case 8: this.drawSaplingTile(tileX, tileY); break;
+                    case 9: this.drawWaterTile(tileX, tileY); break;
+                    case 10: this.drawLilyOfTheValleyStemTile(tileX, tileY); break;
+                    case 11: this.drawLilyOfTheValleyFlowerTile(tileX, tileY); break;
+                    case 12: this.drawRoseStemTile(tileX, tileY); break;
+                    case 13: this.drawRoseFlowerTile(tileX, tileY); break;
+                    case 18: this.drawCactusTile(tileX, tileY); break;
                 }
             }
         }
@@ -3180,25 +3194,79 @@ const g = {
         }
     },
 
-    // This is the main drawing function for our game when it's in the 'playing' state.
     drawGameWorld: function() {
         this.x.clearRect(0, 0, this.c.width, this.c.height); // Clear the entire canvas for a fresh frame.
 
-        this.updatePlayer(); // First, update the player's position and state.
-        const groundLevelY = this.findGroundLevel(); // Find the ground level.
-        this.updateCreatures(groundLevelY); // Then, update all the creatures.
-
-        // Adjust the camera to follow the player, keeping the player centered.
-        this.camera.x = this.player.x - this.c.width / 2;
-        this.camera.y = this.player.y - this.c.height / 2;
-
-        // Make sure the camera doesn't go outside the boundaries of our world.
-        this.camera.x = Math.max(0, Math.min(this.camera.x, this.worldWidth * this.TILE_SIZE - this.c.width));
-        this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight * this.TILE_SIZE - this.c.height));
-
         this.drawSky(); // Draw the beautiful sky with sun/moon and clouds.
-        this.drawWorld(); // Draw all the tiles in our game world.
+
+        // Collect tree parts for layered drawing
+        const treeTrunksToDraw = [];
+        const treeLeavesToDraw = [];
+
+        const startPixelX = this.camera.x;
+        const endPixelX = this.camera.x + this.c.width;
+        const startPixelY = this.camera.y;
+        const endPixelY = this.camera.y + this.c.height;
+
+        const startTileX = Math.floor(startPixelX / this.TILE_SIZE);
+        const endTileX = Math.ceil(endPixelX / this.TILE_SIZE);
+        const startTileY = Math.floor(startPixelY / this.TILE_SIZE);
+        const endTileY = Math.ceil(endPixelY / this.TILE_SIZE);
+
+        for (let y = startTileY; y < endTileY; y++) {
+            for (let x = startTileX; x < endTileX; x++) {
+                const tileType = this.getTile(x, y);
+                const tileX = x * this.TILE_SIZE - this.camera.x;
+                const tileY = y * this.TILE_SIZE - this.camera.y;
+
+                switch (tileType) {
+                    case 1: this.drawGrassTile(tileX, tileY); break;
+                    case 2: this.drawDirtTile(tileX, tileY); break;
+                    case 3: this.drawStoneTile(tileX, tileY); break;
+                    case 6: this.drawFlowerStemTile(tileX, tileY); break;
+                    case 7: this.drawFlowerPetalTile(tileX, tileY); break;
+                    case 8: this.drawSaplingTile(tileX, tileY); break;
+                    case 9: this.drawWaterTile(tileX, tileY); break;
+                    case 10: this.drawLilyOfTheValleyStemTile(tileX, tileY); break;
+                    case 11: this.drawLilyOfTheValleyFlowerTile(tileX, tileY); break;
+                    case 12: this.drawRoseStemTile(tileX, tileY); break;
+                    case 13: this.drawRoseFlowerTile(tileX, tileY); break;
+                    case 18: this.drawCactusTile(tileX, tileY); break;
+                    case 4: // Oak Wood
+                    case 14: // Birch Wood
+                    case 16: // Cherry Wood
+                        treeTrunksToDraw.push({ x: tileX, y: tileY, type: tileType });
+                        break;
+                    case 5: // Oak Leaves
+                    case 15: // Birch Leaves
+                    case 17: // Cherry Leaves
+                        treeLeavesToDraw.push({ x: tileX, y: tileY, type: tileType });
+                        break;
+                }
+            }
+        }
+
+        // Draw non-tree tiles (already handled by the loop above)
+        // Draw tree trunks (player will be drawn on top of these)
+        treeTrunksToDraw.forEach(tree => {
+            switch (tree.type) {
+                case 4: this.drawWoodTile(tree.x, tree.y); break;
+                case 14: this.drawBirchWoodTile(tree.x, tree.y); break;
+                case 16: this.drawCherryWoodTile(tree.x, tree.y); break;
+            }
+        });
+
         this.drawPlayer(); // Draw our hero, the player!
+
+        // Draw tree leaves (these will be drawn on top of the player)
+        treeLeavesToDraw.forEach(tree => {
+            switch (tree.type) {
+                case 5: this.drawLeavesTile(tree.x, tree.y); break;
+                case 15: this.drawBirchLeavesTile(tree.x, tree.y); break;
+                case 17: this.drawCherryLeavesTile(tree.x, tree.y); break;
+            }
+        });
+
         // Draw all the creatures, making sure butterflies only appear during the day and fireflies at night.
         this.creatures.forEach(creature => {
             if (creature.type === 'bunny') this.drawBunny(creature);
@@ -3214,14 +3282,8 @@ const g = {
         this.drawMinimap(); // Draw the minimap itself.
         this.drawRainingHearts(); // Draw any falling hearts, if the effect is active.
 
-        // Update and draw floating hearts that appear from creatures.
-        this.hearts.forEach((heart, index) => {
-            heart.y += heart.vy; // Make the heart float up or down.
-            heart.vy += 0.05; // Gravity affects hearts too (slightly).
-            heart.life--; // Decrease its lifespan.
-            if (heart.life <= 0) { // If its time is up...
-                this.hearts.splice(index, 1); // ...remove it!
-            }
+        // Draw floating hearts that appear from creatures.
+        this.hearts.forEach((heart) => {
             this.drawHeart(heart.x - this.camera.x, heart.y - this.camera.y, heart.size); // Draw the heart.
         });
 
@@ -3233,6 +3295,31 @@ const g = {
         this.x.font = '16px "Press Start 2P"'; // Pixelated font for the title.
         this.x.textAlign = 'center'; // Center the text.
         this.x.fillText(`Serelude`, this.c.width / 2, this.c.height - 15); // Draw the game title.
+    },
+
+
+    updateGame: function() {
+        this.updatePlayer(); // First, update the player's position and state.
+        const groundLevelY = this.findGroundLevel(); // Find the ground level.
+        this.updateCreatures(groundLevelY); // Then, update all the creatures.
+
+        // Adjust the camera to follow the player, keeping the player centered.
+        this.camera.x = this.player.x - this.c.width / 2;
+        this.camera.y = this.player.y - this.c.height / 2;
+
+        // Make sure the camera doesn't go outside the boundaries of our world.
+        this.camera.x = Math.max(0, Math.min(this.camera.x, this.worldWidth * this.TILE_SIZE - this.c.width));
+        this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight * this.TILE_SIZE - this.c.height));
+
+        // Update floating hearts that appear from creatures.
+        this.hearts.forEach((heart, index) => {
+            heart.y += heart.vy; // Make the heart float up or down.
+            heart.vy += 0.05; // Gravity affects hearts too (slightly).
+            heart.life--; // Decrease its lifespan.
+            if (heart.life <= 0) { // If its time is up...
+                this.hearts.splice(index, 1); // ...remove it!
+            }
+        });
     },
 
     // This function draws the beautiful title screen where our adventure begins.
@@ -3249,11 +3336,11 @@ const g = {
         this.x.fillText('Serelude', this.c.width / 2, this.c.height / 2 - 50); // Draw the title.
         this.x.shadowBlur = 0; // Reset shadow.
 
-        // Draw the \"Start\" button.
+        // Draw the "Start" button.
         const buttonWidth = 200;
         const buttonHeight = 50;
         const buttonX = this.c.width / 2 - buttonWidth / 2;
-        const buttonY = this.c.height / 2 + 50;
+        const buttonY = this.c.height / 2 + 150;
         this.startButton = { x: buttonX, y: buttonY, width: buttonWidth, height: buttonHeight }; // Store button dimensions for click detection.
 
         this.x.fillStyle = 'rgba(46, 46, 46, 0.6)'; // Dark, transparent background for the button.
@@ -3264,7 +3351,16 @@ const g = {
 
         this.x.font = '24px "Press Start 2P"'; // Smaller font for the button text.
         this.x.fillStyle = 'white'; // White text.
-        this.x.fillText('Start', this.c.width / 2, this.c.height / 2 + 85); // Draw the \"Start\" text.
+        this.x.fillText('Start', this.c.width / 2, this.c.height / 2 + 185); // Draw the "Start" text.
+
+        // Draw the special message
+        this.x.font = '18px "Press Start 2P"'; // Smaller font for the message.
+        this.x.fillStyle = 'white'; // White text.
+        this.x.fillText('since someone was too lazy to get Minecraft…', this.c.width / 2, this.c.height / 2 + 30); // +20
+        this.x.fillText('i made our own little world instead.', this.c.width / 2, this.c.height / 2 + 55); // +20
+        this.x.fillText('it’s got trees, sunsets, and us.', this.c.width / 2, this.c.height / 2 + 80); // +20
+        this.x.fillText('just a quiet space where we can leave things for each other,', this.c.width / 2, this.c.height / 2 + 105); // +20
+        this.x.fillText('and it’ll always be here, waiting for us to come back.', this.c.width / 2, this.c.height / 2 + 130); // +20
 
         this.drawRainingHearts(); // Add some extra charm with raining hearts on the title screen.
     },
@@ -3279,7 +3375,8 @@ const g = {
     // This is the heart of our game! It runs constantly, updating and redrawing everything.
     mainLoop: function() {
         if (this.gameState === 'playing') { // If we're playing...
-            this.drawGameWorld(); // ...draw the game world and handle all gameplay updates.
+            this.updateGame(); // Update game state.
+            this.drawGameWorld(); // Draw the game world.
         } else if (this.gameState === 'title') { // If we're on the title screen...
             this.drawTitleScreen(); // ...draw the title screen.
         }

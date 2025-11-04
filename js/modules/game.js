@@ -27,7 +27,7 @@ export const g = {
     currentAnimationId: null,
     gameState: 'title',
     startButton: null,
-    gameSpeed: 0.35,
+
     camera: {
         x: 0, y: 0
     },
